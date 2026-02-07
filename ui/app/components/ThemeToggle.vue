@@ -10,7 +10,7 @@ function toggleDarkMode() {
 </script>
 
 <template>
-  <div class="fixed top-8 right-8">
+  <div >
     <Button
       type="button"
       @click="toggleDarkMode"
