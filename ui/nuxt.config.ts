@@ -11,7 +11,11 @@ export default defineNuxtConfig({
       apiUrl: ''
     }
   },
-  modules: ['@primevue/nuxt-module', '@pinia/nuxt'],
+  modules: [
+    '@primevue/nuxt-module',
+    '@pinia/nuxt',
+    '@nuxtjs/color-mode'
+  ],
   primevue: {
     options: {
       theme: {
@@ -27,7 +31,10 @@ export default defineNuxtConfig({
       
     }
   },
-  css: ["./app/assets/css/main.css"],
+  css: [
+    "./app/assets/css/main.css",
+    'primeicons/primeicons.css'
+  ],
   vite: {
     plugins: [
       tailwindcss(),
@@ -36,4 +43,8 @@ export default defineNuxtConfig({
   pinia: {
     storesDirs: ['./stores/**'],
   },
+  colorMode: {
+    preference: 'system',
+    fallback: 'light', 
+  }
 })
