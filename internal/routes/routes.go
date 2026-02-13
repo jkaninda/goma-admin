@@ -25,11 +25,13 @@ var (
 	middlewareService = &services.MiddlewareService{}
 	authService       *services.AuthService
 	adminService      *services.AdminService
+	instanceService   *services.InstanceService
 )
 
 func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Router {
 	authService = services.NewAuthService(conf)
 	adminService = services.NewAdminService(conf)
+	instanceService = services.NewInstanceService(conf.Database.DB)
 	return &Router{
 		app:    app,
 		config: conf,
@@ -46,6 +48,7 @@ func (r *Router) RegisterRoutes() {
 	r.app.Register(r.routeMiddlewares()...)
 	r.app.Register(r.authRoutes()...)
 	r.app.Register(r.adminRoutes()...)
+	r.app.Register(r.instanceRoutes()...)
 }
 
 func (r *Router) home() okapi.RouteDefinition {
