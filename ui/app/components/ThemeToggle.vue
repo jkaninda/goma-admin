@@ -1,26 +1,29 @@
-<script setup>
-const colorMode = useColorMode()
+<script setup lang="ts">
+const props = defineProps({
+  variant: {
+    type: String,
+    default: "default",
+  },
+});
+
+const colorMode = useColorMode();
 
 function toggleDarkMode() {
-  colorMode.preference =
-    colorMode.value === 'dark'
-      ? 'light'
-      : 'dark'
+  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
 }
 </script>
 
 <template>
-    <ClientOnly>
-  <div >
+  <ClientOnly>
     <Button
-      type="button"
-      @click="toggleDarkMode"
+      text
       rounded
-      severity="secondary"
-      :icon="colorMode.value === 'dark'
-        ? 'pi pi-moon'
-        : 'pi pi-sun'"
+      @click="toggleDarkMode"
+      :icon="colorMode.value === 'dark' ? 'pi pi-moon' : 'pi pi-sun'"
+      :class="{
+        'text-primary-contrast! hover:bg-white/10! transition-colors duration-150':
+          props.variant === 'toolbar',
+      }"
     />
-  </div>
-    </ClientOnly>
+  </ClientOnly>
 </template>
