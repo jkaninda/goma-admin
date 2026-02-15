@@ -49,7 +49,9 @@ const handleSubmit = async ({ valid, values }:any) => {
     <div class="card w-full max-w-md p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-md flex flex-col gap-4 sm:gap-6 bg-surface-0 dark:bg-surface-900">
 
       <div class="flex flex-col items-center gap-2 text-center">
-        <img src="/favicon.ico" class="h-16 w-16 sm:h-20 sm:w-20" alt="Logo" />
+        <NuxtLink to="/">
+          <img src="/favicon.ico" class="h-16 w-16 sm:h-20 sm:w-20" alt="Logo" />
+        </NuxtLink>
         <h1 class="text-2xl sm:text-3xl font-semibold text-surface-900 dark:text-surface-0">Welcome Back</h1>
         <p class="text-muted-color text-sm">Sign in to continue</p>
       </div>
@@ -89,10 +91,6 @@ const handleSubmit = async ({ valid, values }:any) => {
             <Checkbox v-model="checked" id="rememberme" binary class="mr-2" />
             <label for="rememberme">Remember me</label>
           </div>
-          <NuxtLink
-            to="/auth/forgot-password"
-            class="text-primary font-medium text-sm text-center hover:underline mt-2 sm:mt-0"
-          >Forgot password?</NuxtLink>
         </div>
 
         <Button type="submit" severity="primary" label="Sign In" :loading="loading" class="w-full rounded-full py-3 text-lg" />

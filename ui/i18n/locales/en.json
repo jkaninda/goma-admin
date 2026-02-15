@@ -1,0 +1,22 @@
+{
+    "common": {
+        "dashboard": "Dashboard",
+        "routes": "Routes",
+        "middlewares": "Middlewares",
+        "instances": "Instances",
+        "analytics": "Analytics",
+        "configuration": "Configuration",
+        "history": "History",
+        "profile": "Profile",
+        "settings": "Settings",
+        "logout": "Logout",
+        "docs": "Docs",
+        "support": "Support",
+        "github": "GitHub",
+        "simple_card": "Simple Card",
+        "lorem_ipsum": "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Inventore sed consequuntur error repudiandae numquam deserunt quisquam repellat libero asperiores earum nam nobis, culpa ratione quam perferendis esse, cupiditate neque quas!",
+        "toggle_sidebar": "Toggle sidebar",
+        "notifications": "Notifications",
+        "user_menu": "User menu"
+    }
+}
