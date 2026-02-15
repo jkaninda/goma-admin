@@ -8,7 +8,6 @@ Thumbs.db
 *.swo
 *~
 /.history
-Makefile
 data
 .env
 .env.local
