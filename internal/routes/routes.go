@@ -122,9 +122,21 @@ func (r *Router) routeMiddlewares() []okapi.RouteDefinition {
 			Group:   group,
 		},
 		{
-			Path:    "/:id",
+			Path:    "",
 			Method:  http.MethodPost,
 			Handler: middlewareService.Create,
+			Group:   group,
+		},
+		{
+			Path:    "/search",
+			Method:  http.MethodGet,
+			Handler: middlewareService.Search,
+			Group:   group,
+		},
+		{
+			Path:    "/stats",
+			Method:  http.MethodGet,
+			Handler: middlewareService.Stats,
 			Group:   group,
 		},
 		{
@@ -143,6 +155,12 @@ func (r *Router) routeMiddlewares() []okapi.RouteDefinition {
 			Path:    "/:id",
 			Method:  http.MethodDelete,
 			Handler: middlewareService.Delete,
+			Group:   group,
+		},
+		{
+			Path:    "/:id/usage",
+			Method:  http.MethodGet,
+			Handler: middlewareService.Usage,
 			Group:   group,
 		},
 	}
