@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  actions: write # Required for artifact management
+
 jobs:
   backend:
     name: Backend (Go)
