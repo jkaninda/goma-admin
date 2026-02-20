@@ -40,6 +40,7 @@ func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Rout
 		auth:   middlewares.NewAuth(conf),
 	}
 }
+
 func (r *Router) RegisterRoutes() {
 	r.app.Register(r.home())
 	r.app.Register(r.Version())
@@ -79,9 +80,15 @@ func (r *Router) routes() []okapi.RouteDefinition {
 			Group:   group,
 		},
 		{
-			Path:    "/:id",
+			Path:    "",
 			Method:  http.MethodPost,
 			Handler: routeService.Create,
+			Group:   group,
+		},
+		{
+			Path:    "/find",
+			Method:  http.MethodGet,
+			Handler: routeService.FindByPath,
 			Group:   group,
 		},
 		{
