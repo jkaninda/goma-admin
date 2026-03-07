@@ -21,17 +21,19 @@ type Router struct {
 var (
 	commonService     = &services.CommonService{}
 	routeService      = &services.RouteService{}
-	providerService   = &services.ProviderService{}
 	middlewareService = &services.MiddlewareService{}
-	authService       *services.AuthService
-	adminService      *services.AdminService
-	instanceService   *services.InstanceService
+
+	authService     *services.AuthService
+	adminService    *services.AdminService
+	instanceService *services.InstanceService
+	providerService *services.ProviderService
 )
 
 func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Router {
 	authService = services.NewAuthService(conf)
 	adminService = services.NewAdminService(conf)
 	instanceService = services.NewInstanceService(conf.Database.DB)
+	providerService = services.NewProviderService(conf.Database.DB)
 	return &Router{
 		app:    app,
 		config: conf,
