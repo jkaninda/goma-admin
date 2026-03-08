@@ -9,4 +9,5 @@ export interface User {
 export interface AuthCredentials {
     email: string
     password: string
+    remember_me?: boolean
 }
