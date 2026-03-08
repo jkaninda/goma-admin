@@ -52,9 +52,9 @@ func (s ProviderService) Routes(c *okapi.Context) error {
 func (s ProviderService) Middlewares(c *okapi.Context) error {
 	name := c.Param("name")
 
-	// Ensure the instance exists
-	_, err := s.instanceRepo.GetByName(c.Request().Context(), name)
-	if err != nil {
+	// Ensure the instance exists without loading related data
+	exists, err := s.instanceRepo.Exists(c.Request().Context(), name)
+	if err != nil || !exists {
 		return c.AbortNotFound(fmt.Sprintf("Instance not found: %s", name), err)
 	}
 
@@ -80,12 +80,22 @@ func (s ProviderService) Webhook(c *okapi.Context) error {
 		Status string `json:"status"`
 	}
 	var payload webhookPayload
-	if err := c.Bind(&payload); err == nil && payload.Status != "" {
+	if err := c.Bind(&payload); err != nil {
+		// Treat empty body as "no payload", but reject invalid JSON when a body is present
+		if c.Request().ContentLength == 0 {
+			// Just update last seen
+			if err := s.instanceRepo.UpdateLastSeen(c.Request().Context(), instance.ID); err != nil {
+				logger.Error("Failed to update instance last_seen via webhook", "error", err)
+			}
+		} else {
+			return c.AbortBadRequest("Invalid JSON payload", err)
+		}
+	} else if payload.Status != "" {
 		if err := s.instanceRepo.UpdateStatus(c.Request().Context(), instance.ID, payload.Status); err != nil {
 			logger.Error("Failed to update instance status via webhook", "error", err)
 		}
 	} else {
-		// Just update last seen
+		// No status provided, just update last seen
 		if err := s.instanceRepo.UpdateLastSeen(c.Request().Context(), instance.ID); err != nil {
 			logger.Error("Failed to update instance last_seen via webhook", "error", err)
 		}
