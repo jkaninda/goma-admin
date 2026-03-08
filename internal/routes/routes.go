@@ -32,6 +32,7 @@ func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Rout
 	authService = services.NewAuthService(conf)
 	adminService = services.NewAdminService(conf)
 	instanceService = services.NewInstanceService(conf.Database.DB)
+	commonService = services.NewCommonService(conf.Database.DB)
 	return &Router{
 		app:    app,
 		config: conf,
@@ -43,6 +44,7 @@ func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Rout
 
 func (r *Router) RegisterRoutes() {
 	r.app.Register(r.home())
+	r.app.Register(r.Dashboard())
 	r.app.Register(r.Version())
 	r.app.Register(r.routes()...)
 	r.app.Register(r.providerRoutes()...)
@@ -66,6 +68,16 @@ func (r *Router) Version() okapi.RouteDefinition {
 		Method:  http.MethodGet,
 		Handler: commonService.Version,
 		Group:   &okapi.Group{Prefix: "/", Tags: []string{"commonService"}},
+	}
+}
+func (r *Router) Dashboard() okapi.RouteDefinition {
+	group := r.group.Group("/").WithTags([]string{"commonService"})
+	group.Use(r.auth.JWT.Middleware)
+	return okapi.RouteDefinition{
+		Path:    "/dashboard",
+		Method:  http.MethodGet,
+		Handler: commonService.Dashboard,
+		Group:   group,
 	}
 }
 
