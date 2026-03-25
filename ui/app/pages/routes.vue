@@ -1,6 +1,11 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
+
+definePageMeta({
+    middleware: 'auth'
+});
+
 onMounted(() => {});
 </script>
 

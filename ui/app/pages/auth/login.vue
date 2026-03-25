@@ -15,13 +15,13 @@ const loading = ref(false)
 
 const initialValues = reactive({
   email: "",
-    Password: "",
+  password: "",
 });
 
 const resolver = ref(zodResolver(
     z.object({
         email: z.email({ message: 'Invalid email address.' }),
-        password: z.string().min(1, { message: 'Password is required.' }).min(6, { message: 'Password must be at least 8 characters.' })
+        password: z.string().min(1, { message: 'Password is required.' }).min(6, { message: 'Password must be at least 6 characters.' })
 
     })
 ));
@@ -30,16 +30,26 @@ const handleSubmit = async ({ valid, values }:any) => {
   if (!valid) return;
   loading.value = true;
   try {
-      console.log(values, checked.value);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await auth.login({
+      email: values.email,
+      password: values.password,
+      remember_me: checked.value
+    });
 
     toast.add({
       severity: 'success',
-      summary: 'Link Sent',
-      detail: `Instructions sent to ${values.email}`,
+      summary: 'Success',
+      detail: 'Logged in successfully',
       life: 4000,
     });
     router.push('/')
+  } catch (error: any) {
+    toast.add({
+      severity: 'error',
+      summary: 'Login Failed',
+      detail: error.data?.message || 'Invalid email or password',
+      life: 4000,
+    });
   } finally {
     loading.value = false;
   }
