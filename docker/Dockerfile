@@ -27,7 +27,7 @@ COPY utils/ utils/
 # Build the binary
 RUN CGO_ENABLED=0 go build \
     -ldflags "-s -w -X 'github.com/jkaninda/goma-admin/internal/config.Version=${VERSION}' -X 'github.com/jkaninda/goma-admin/internal/config.CommitID=${COMMIT}' -X 'github.com/jkaninda/goma-admin/internal/config.BuildDate=${BUILD_DATE}'" \
-    -o /bin/posta ./cmd/posta
+    -o /bin/goma ./cmd
 # Final Stage
 FROM alpine:3.21
 
@@ -44,7 +44,7 @@ RUN chmod a+x /usr/local/bin/goma && ln -s /usr/local/bin/goma /goma
 # Copy frontend assets
 COPY --from=ui-builder /app/web/dist /app/web/dist
 
-ENV POSTA_WEB_DIR=/app/web/dist
+ENV GOMA_WEB_DIR=/app/web/dist
 
 WORKDIR /app
 EXPOSE 9000
