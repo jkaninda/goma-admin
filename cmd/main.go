@@ -39,10 +39,12 @@ func main() {
 				logger.Fatal("failed to run migrations", "error", err)
 			}
 			// Run seeders
-			seed.CreateDefaultInstance(conf.Database.DB)
+			if err := seed.CreateDefaultInstance(conf.Database.DB); err != nil {
+				logger.Fatal("failed to create default instance", "error", err)
+			}
 		},
 		OnStarted: func() {
-			logger.Info("Server started successfully")
+			logger.Info("Server started successfully", "version", config.Version, "port", conf.Server.Port)
 		},
 		OnShutdown: func() {
 			logger.Info("Server shutting down gracefully...")

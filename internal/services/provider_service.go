@@ -148,7 +148,7 @@ func (s *ProviderService) buildConfigBundle(c *okapi.Context, name string) (*con
 	bundle := &configBundle{
 		Version:     "1.0",
 		Routes:      routes,
-		Middlewares:  middlewares,
+		Middlewares: middlewares,
 		Metadata:    metadata,
 		Timestamp:   time.Now(),
 	}

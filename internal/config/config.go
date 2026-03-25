@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	goutils "github.com/jkaninda/go-utils"
-	util "github.com/jkaninda/goma-admin/utils"
 	"github.com/jkaninda/okapi"
 	"github.com/jkaninda/okapi/okapicli"
 	"gorm.io/driver/postgres"
@@ -82,13 +81,15 @@ func (c *Config) initialize(app *okapi.Okapi) error {
 	// Init Doc
 	if c.Server.enableDocs {
 		app.WithOpenAPIDocs(okapi.OpenAPI{
-			Title:   util.AppName,
-			Version: util.AppVersion,
+			Title:   AppName,
+			Version: Version,
 		})
 	}
 	app.WithPort(c.Server.Port)
 
-	goutils.SetEnv("ENV", goutils.Env("ENV", c.Server.Environment))
+	if err := goutils.SetEnv("ENV", goutils.Env("ENV", c.Server.Environment)); err != nil {
+		return err
+	}
 	return nil
 }
 

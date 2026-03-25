@@ -1,8 +1,8 @@
 package services
 
 import (
+	"github.com/jkaninda/goma-admin/internal/config"
 	"github.com/jkaninda/goma-admin/internal/repository"
-	util "github.com/jkaninda/goma-admin/utils"
 	"github.com/jkaninda/okapi"
 	"gorm.io/gorm"
 )
@@ -34,7 +34,7 @@ func (cm CommonService) Readyz(c *okapi.Context) error {
 }
 
 func (cm CommonService) Version(c *okapi.Context) error {
-	return c.OK(okapi.M{"version": util.AppVersion})
+	return c.OK(okapi.M{"version": config.Version})
 }
 func (cm CommonService) Dashboard(c *okapi.Context) error {
 	ctx := c.Request().Context()

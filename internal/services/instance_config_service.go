@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/repository"
-	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/okapi"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
@@ -80,7 +80,7 @@ func (s *InstanceConfigService) Export(c *okapi.Context) error {
 
 	export := instanceConfigFile{
 		Routes:      routes,
-		Middlewares:  middlewares,
+		Middlewares: middlewares,
 	}
 
 	filename := fmt.Sprintf("goma-config-%s.yaml", instance.Name)
@@ -106,7 +106,7 @@ func (s *InstanceConfigService) Import(c *okapi.Context) error {
 	if err != nil {
 		return c.AbortBadRequest("Failed to read request body", err)
 	}
-	defer c.Request().Body.Close()
+	defer func() { _ = c.Request().Body.Close() }()
 
 	var file instanceConfigFile
 	if err := yaml.Unmarshal(body, &file); err != nil {

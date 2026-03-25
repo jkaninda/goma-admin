@@ -2,9 +2,13 @@
 
 A comprehensive admin dashboard for managing Goma Gateway instances with visual configuration, real-time monitoring, and multi-environment support.
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue)](go.mod)
-[![Vue Version](https://img.shields.io/badge/vue-3.x-green)](package.json)
+[![CI](https://github.com/jkaninda/goma-admin/actions/workflows/ci.yml/badge.svg)](https://github.com/jkaninda/goma-admin/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jkaninda/goma-admin)](https://goreportcard.com/report/github.com/jkaninda/goma-admin)
+[![Go](https://img.shields.io/github/go-mod/go-version/jkaninda/goma-admin)](https://go.dev/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jkaninda/goma-admin.svg)](https://pkg.go.dev/github.com/jkaninda/goma-admin)
+[![GitHub Release](https://img.shields.io/github/v/release/jkaninda/goma-admin)](https://github.com/jkaninda/goma-admin/releases)
+![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-admin?style=flat-square)
+![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-admin?style=flat-square)
 
 > **⚠️ Development Status**: This project is currently under active development. Contributions and feedback are welcome!
 

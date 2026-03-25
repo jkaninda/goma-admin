@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/repository"
-	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/okapi"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 )
+
+const fieldName = "name"
 
 type ImportService struct {
 	routeRepo      *repository.RouteRepository
@@ -45,7 +47,7 @@ func (s *ImportService) ImportRoutes(c *okapi.Context) error {
 	if err != nil {
 		return c.AbortBadRequest("Failed to read request body", err)
 	}
-	defer c.Request().Body.Close()
+	defer func() { _ = c.Request().Body.Close() }()
 
 	var file routesFile
 	if err := yaml.Unmarshal(body, &file); err != nil {
@@ -68,7 +70,7 @@ func (s *ImportService) ImportRoutes(c *okapi.Context) error {
 		// Build config from all fields except "name"
 		config := make(models.JSONB, len(raw)-1)
 		for k, v := range raw {
-			if k == "name" {
+			if k == fieldName {
 				continue
 			}
 			config[k] = v
@@ -110,7 +112,7 @@ func (s *ImportService) ImportMiddlewares(c *okapi.Context) error {
 	if err != nil {
 		return c.AbortBadRequest("Failed to read request body", err)
 	}
-	defer c.Request().Body.Close()
+	defer func() { _ = c.Request().Body.Close() }()
 
 	var file middlewaresFile
 	if err := yaml.Unmarshal(body, &file); err != nil {
@@ -139,7 +141,7 @@ func (s *ImportService) ImportMiddlewares(c *okapi.Context) error {
 		// Build config from all fields except "name" and "type"
 		config := make(models.JSONB, len(raw)-2)
 		for k, v := range raw {
-			if k == "name" || k == "type" {
+			if k == fieldName || k == "type" {
 				continue
 			}
 			config[k] = v

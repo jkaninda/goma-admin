@@ -10,6 +10,11 @@ RUN npm run build
 # Go Builder Stage
 FROM golang:1.26-alpine AS build
 
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=2026-03-25
+
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -20,8 +25,9 @@ COPY internal/ internal/
 COPY utils/ utils/
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/goma cmd/main.go
-
+RUN CGO_ENABLED=0 go build \
+    -ldflags "-s -w -X 'github.com/jkaninda/goma-admin/internal/config.Version=${VERSION}' -X 'github.com/jkaninda/goma-admin/internal/config.CommitID=${COMMIT}' -X 'github.com/jkaninda/goma-admin/internal/config.BuildDate=${BUILD_DATE}'" \
+    -o /bin/posta ./cmd/posta
 # Final Stage
 FROM alpine:3.21
 

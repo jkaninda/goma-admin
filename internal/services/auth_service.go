@@ -5,8 +5,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jkaninda/goma-admin/internal/config"
-	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/goma-admin/internal/dto"
+	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/okapi"
 )
 
@@ -29,7 +29,7 @@ func (s *AuthService) Login(c *okapi.Context, input *dto.LoginRequest) error {
 	}
 
 	if !user.CheckPassword(input.Body.Password) {
-		s.userRepo.IncrementFailedLogins(c.Request().Context(), user.ID)
+		_ = s.userRepo.IncrementFailedLogins(c.Request().Context(), user.ID)
 		return c.AbortUnauthorized("Invalid credentials")
 	}
 
@@ -40,7 +40,7 @@ func (s *AuthService) Login(c *okapi.Context, input *dto.LoginRequest) error {
 		return c.AbortUnauthorized("Account is disabled")
 	}
 
-	s.userRepo.UpdateLastLogin(c.Request().Context(), user.ID, c.Request().RemoteAddr)
+	_ = s.userRepo.UpdateLastLogin(c.Request().Context(), user.ID, c.Request().RemoteAddr)
 
 	expirationTime := time.Now().Add(24 * time.Hour)
 	if input.Body.RememberMe {
