@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/jkaninda/goma-admin/internal/config"
-	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/middlewares"
+	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/services"
 	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
@@ -25,16 +25,16 @@ type Router struct {
 }
 
 var (
-	commonService    = &services.CommonService{}
-	routeService     = &services.RouteService{}
-	providerService  *services.ProviderService
-	middlewareService = &services.MiddlewareService{}
-	importService        *services.ImportService
+	commonService         = &services.CommonService{}
+	routeService          = &services.RouteService{}
+	providerService       *services.ProviderService
+	middlewareService     = &services.MiddlewareService{}
+	importService         *services.ImportService
 	instanceConfigService *services.InstanceConfigService
-	authService          *services.AuthService
-	instanceService  *services.InstanceService
-	apiKeyService    *services.APIKeyService
-	profileService   *services.ProfileService
+	authService           *services.AuthService
+	instanceService       *services.InstanceService
+	apiKeyService         *services.APIKeyService
+	profileService        *services.ProfileService
 )
 
 func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Router {

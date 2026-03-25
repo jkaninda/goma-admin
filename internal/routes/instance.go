@@ -3,8 +3,8 @@ package routes
 import (
 	"net/http"
 
-	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/dto"
+	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/okapi"
 )
 
@@ -15,9 +15,9 @@ func (r *Router) instanceRoutes() []okapi.RouteDefinition {
 	return []okapi.RouteDefinition{
 		{
 			Path: "/:id/export", Method: http.MethodGet, Group: group,
-			Handler:  instanceConfigService.Export,
-			Summary:  "Export instance config (routes + middlewares) as YAML",
-			Options:  []okapi.RouteOption{okapi.DocBearerAuth(), okapi.DocPathParam("id", "integer", "Instance ID")},
+			Handler: instanceConfigService.Export,
+			Summary: "Export instance config (routes + middlewares) as YAML",
+			Options: []okapi.RouteOption{okapi.DocBearerAuth(), okapi.DocPathParam("id", "integer", "Instance ID")},
 		},
 		{
 			Path: "/:id/import", Method: http.MethodPost, Group: group,

@@ -88,7 +88,7 @@ func (a *IntArray) Scan(value interface{}) error {
 	result := make([]int, 0, len(parts))
 	for _, part := range parts {
 		var num int
-		fmt.Sscanf(part, "%d", &num)
+		_, _ = fmt.Sscanf(part, "%d", &num)
 		result = append(result, num)
 	}
 
@@ -131,7 +131,7 @@ func joinStrings(arr []string, sep string) string {
 	return result
 }
 
-func splitStrings(str, sep string) []string {
+func splitStrings(str, _ string) []string {
 	if str == "" {
 		return []string{}
 	}

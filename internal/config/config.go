@@ -87,7 +87,9 @@ func (c *Config) initialize(app *okapi.Okapi) error {
 	}
 	app.WithPort(c.Server.Port)
 
-	goutils.SetEnv("ENV", goutils.Env("ENV", c.Server.Environment))
+	if err := goutils.SetEnv("ENV", goutils.Env("ENV", c.Server.Environment)); err != nil {
+		return err
+	}
 	return nil
 }
 

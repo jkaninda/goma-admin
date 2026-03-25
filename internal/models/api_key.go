@@ -13,18 +13,18 @@ import (
 )
 
 type APIKey struct {
-	ID         uint       `gorm:"primaryKey" json:"id"`
-	UserID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
-	InstanceID *uint      `gorm:"index" json:"instance_id,omitempty"`
-	Name       string     `gorm:"not null;size:255" json:"name"`
-	KeyHash    string     `gorm:"not null;size:64" json:"-"`
-	KeyPrefix  string     `gorm:"not null;size:16;index" json:"key_prefix"`
-	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
-	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
-	Revoked    bool       `gorm:"default:false" json:"revoked"`
+	ID         uint        `gorm:"primaryKey" json:"id"`
+	UserID     uuid.UUID   `gorm:"type:uuid;not null;index" json:"user_id"`
+	InstanceID *uint       `gorm:"index" json:"instance_id,omitempty"`
+	Name       string      `gorm:"not null;size:255" json:"name"`
+	KeyHash    string      `gorm:"not null;size:64" json:"-"`
+	KeyPrefix  string      `gorm:"not null;size:16;index" json:"key_prefix"`
+	ExpiresAt  *time.Time  `json:"expires_at,omitempty"`
+	LastUsedAt *time.Time  `json:"last_used_at,omitempty"`
+	Revoked    bool        `gorm:"default:false" json:"revoked"`
 	AllowedIPs StringArray `gorm:"type:text[]" json:"allowed_ips,omitempty"`
-	CreatedAt  time.Time  `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt  time.Time  `gorm:"column:updated_at" json:"updated_at"`
+	CreatedAt  time.Time   `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt  time.Time   `gorm:"column:updated_at" json:"updated_at"`
 
 	User     User      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
 	Instance *Instance `gorm:"foreignKey:InstanceID;constraint:OnDelete:CASCADE" json:"-"`

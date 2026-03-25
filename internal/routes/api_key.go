@@ -3,8 +3,8 @@ package routes
 import (
 	"net/http"
 
-	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/dto"
+	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/okapi"
 )
 
