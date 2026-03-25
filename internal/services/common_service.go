@@ -1,9 +1,7 @@
 package services
 
 import (
-	"context"
-
-	"github.com/jkaninda/goma-admin/internal/db/repository"
+	"github.com/jkaninda/goma-admin/internal/repository"
 	util "github.com/jkaninda/goma-admin/utils"
 	"github.com/jkaninda/okapi"
 	"gorm.io/gorm"
@@ -39,16 +37,22 @@ func (cm CommonService) Version(c *okapi.Context) error {
 	return c.OK(okapi.M{"version": util.AppVersion})
 }
 func (cm CommonService) Dashboard(c *okapi.Context) error {
-	ctx := context.Background()
+	ctx := c.Request().Context()
 	userCount, _ := cm.userRepo.Count(ctx)
 	instanceCount, _ := cm.instanceRepo.Count(ctx)
-	middlewareCount, _ := cm.middlewareRepo.Count(ctx)
-	// Route count - since RouteRepo doesn't have Count, we might need to add it or use a workaround
-	// For now let's assume we can get it or I'll add it to RouteRepo if I can.
-	// Actually, I'll just use 0 for now or call List and get length if it's not too many.
-	// Better to add Count to RouteRepo.
-	routes, _ := cm.routeRepo.List(ctx)
-	routeCount := len(routes)
+
+	instanceID := OptionalInstanceID(c)
+
+	var routeCount int64
+	var middlewareCount int64
+
+	if instanceID != nil {
+		routeCount, _ = cm.routeRepo.CountByInstance(ctx, *instanceID)
+		middlewareCount, _ = cm.middlewareRepo.CountByInstance(ctx, *instanceID)
+	} else {
+		routeCount, _ = cm.routeRepo.Count(ctx)
+		middlewareCount, _ = cm.middlewareRepo.Count(ctx)
+	}
 
 	return c.OK(okapi.M{
 		"users":       userCount,

@@ -1,12 +1,8 @@
 package services
 
 import (
-	"fmt"
-
-	"github.com/google/uuid"
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-admin/internal/db/models"
-	"github.com/jkaninda/goma-admin/internal/db/repository"
+	"github.com/jkaninda/goma-admin/internal/models"
+	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
@@ -20,6 +16,7 @@ type InstanceService struct {
 func NewInstanceService(db *gorm.DB) *InstanceService {
 	return &InstanceService{repo: repository.NewInstanceRepository(db)}
 }
+
 func (s InstanceService) List(c *okapi.Context) error {
 	instances, err := s.repo.List(c.Request().Context())
 	if err != nil {
@@ -28,75 +25,63 @@ func (s InstanceService) List(c *okapi.Context) error {
 	}
 	return c.OK(instances)
 }
-func (s InstanceService) Create(c *okapi.Context) error {
-	instanceRq := &dto.InstanceRq{}
-	if err := c.Bind(instanceRq); err != nil {
-		return c.AbortBadRequest("Bad request", err)
-	}
-	instance := &models.Instance{}
-	if err := goutils.DeepCopy(instance, instanceRq); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
 
+func (s InstanceService) Create(c *okapi.Context, input *dto.CreateInstanceRq) error {
+	instance := &models.Instance{
+		Name:            input.Body.Name,
+		Environment:     input.Body.Environment,
+		Description:     input.Body.Description,
+		Endpoint:        input.Body.Endpoint,
+		MetricsEndpoint: input.Body.MetricsEndpoint,
+		HealthEndpoint:  input.Body.HealthEndpoint,
+		Version:         input.Body.Version,
+		Region:          input.Body.Region,
+		Tags:            input.Body.Tags,
 	}
+
 	if err := s.repo.Create(c.Context(), instance); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
 
 	return c.Created(instance)
 }
-func (s InstanceService) Get(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid instance ID", err)
-	}
 
-	instance, err := s.repo.GetByID(c.Request().Context(), id)
+func (s InstanceService) Get(c *okapi.Context, input *dto.InstanceByIDRq) error {
+	instance, err := s.repo.GetByID(c.Request().Context(), uint(input.ID))
 	if err != nil {
 		return c.AbortNotFound("Instance not found", err)
 	}
-
 	return c.OK(instance)
 }
-func (s InstanceService) Update(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid instance ID", err)
-	}
 
-	instanceRq := &dto.InstanceRq{}
-	if err := c.Bind(instanceRq); err != nil {
-		return c.AbortBadRequest("Bad request", err)
-	}
-
-	existingInstance, err := s.repo.GetByID(c.Request().Context(), id)
+func (s InstanceService) Update(c *okapi.Context, input *dto.UpdateInstanceRq) error {
+	existing, err := s.repo.GetByID(c.Request().Context(), uint(input.ID))
 	if err != nil {
 		return c.AbortNotFound("Instance not found", err)
 	}
 
-	if err := goutils.DeepCopy(existingInstance, instanceRq); err != nil {
+	existing.Name = input.Body.Name
+	existing.Environment = input.Body.Environment
+	existing.Description = input.Body.Description
+	existing.Endpoint = input.Body.Endpoint
+	existing.MetricsEndpoint = input.Body.MetricsEndpoint
+	existing.HealthEndpoint = input.Body.HealthEndpoint
+	existing.Version = input.Body.Version
+	existing.Region = input.Body.Region
+	existing.Tags = input.Body.Tags
+
+	if err := s.repo.Update(c.Request().Context(), existing); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
 
-	if err := s.repo.Update(c.Request().Context(), existingInstance); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.OK(existingInstance)
+	return c.OK(existing)
 }
-func (s InstanceService) Delete(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid instance ID", err)
-	}
 
-	if err := s.repo.Delete(c.Request().Context(), id); err != nil {
+func (s InstanceService) Delete(c *okapi.Context, input *dto.InstanceByIDRq) error {
+	if err := s.repo.Delete(c.Request().Context(), uint(input.ID)); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-
-	return c.OK(okapi.M{"message": "Instance deleted successfully"})
+	return c.NoContent()
 }
 
 func (s InstanceService) GetStats(c *okapi.Context) error {
@@ -113,58 +98,4 @@ func (s InstanceService) GetHealthy(c *okapi.Context) error {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
 	return c.OK(instances)
-}
-
-func (s InstanceService) ListRoutes(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid instance ID", err)
-	}
-
-	routes, err := s.repo.GetRoutesByInstance(c.Request().Context(), id)
-	if err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.OK(routes)
-}
-
-func (s InstanceService) AttachRoute(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid instance ID", err)
-	}
-
-	var req models.InstanceRoute
-	if err := c.Bind(&req); err != nil {
-		return c.AbortBadRequest("Bad request", err)
-	}
-
-	if err := s.repo.AttachRoute(c.Request().Context(), id, req.RouteID, &req); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.OK(okapi.M{"message": "Route attached successfully"})
-}
-
-func (s InstanceService) DetachRoute(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid instance ID", err)
-	}
-
-	routeIdStr := c.Param("routeId")
-	var routeID uint
-	if _, err := fmt.Sscanf(routeIdStr, "%d", &routeID); err != nil {
-		return c.AbortBadRequest("Invalid route ID", err)
-	}
-
-	if err := s.repo.DetachRoute(c.Request().Context(), id, routeID); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.OK(okapi.M{"message": "Route detached successfully"})
 }

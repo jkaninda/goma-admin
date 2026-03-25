@@ -11,20 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U goma-admin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  goma-redis:
-    image: redis:7-alpine
-    container_name: goma-admin-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U goma"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,38 +19,19 @@ services:
   goma-admin:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: goma-admin
     ports:
-      - "8080:8080"
+      - "9000:9000"
     environment:
       GOMA_DB_URL: postgresql://goma:goma@goma-postgres:5432/goma?sslmode=disable
-      GOMA_REDIS_URL: redis://redis:6379/0
-      GOMA_PORT: 8080
+      GOMA_PORT: 9000
       GOMA_ENVIRONMENT: development
+      GOMA_WEB_DIR: /app/web/dist
     depends_on:
       goma-postgres:
         condition: service_healthy
-      goma-redis:
-        condition: service_healthy
-    volumes:
-      - ./:/app
-    restart: unless-stopped
-
-  goma-admin-ui:
-    build:
-      context: ./ui
-      dockerfile: Dockerfile
-    container_name: goma-admin-ui
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./ui:/app
-      - /ui/node_modules
-    depends_on:
-      - goma-admin
     restart: unless-stopped
 
 volumes:
   postgres_data:
-  redis_data:

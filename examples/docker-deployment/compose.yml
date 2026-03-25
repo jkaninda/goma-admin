@@ -1,0 +1,33 @@
+services:
+  goma-postgres:
+    image: postgres:16-alpine
+    container_name: goma-admin-postgres
+    environment:
+      POSTGRES_USER: ${GOMA_DB_USER:-goma}
+      POSTGRES_PASSWORD: ${GOMA_DB_PASSWORD:-goma}
+      POSTGRES_DB: ${GOMA_DB_NAME:-goma}
+    ports:
+      - "${GOMA_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GOMA_DB_USER:-goma}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  goma-admin:
+    image: jkaninda/goma-admin:latest
+    container_name: goma-admin
+    ports:
+      - "${GOMA_PORT:-9000}:9000"
+    env_file:
+      - .env
+    depends_on:
+      goma-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

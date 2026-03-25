@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jkaninda/goma-admin/internal/config"
-	"github.com/jkaninda/goma-admin/internal/db/repository"
+	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/okapi"
 )
@@ -22,25 +22,17 @@ func NewAuthService(conf *config.Config) *AuthService {
 	}
 }
 
-func (s *AuthService) Login(c *okapi.Context) error {
-	var req dto.LoginRequest
-	if err := c.Bind(&req); err != nil {
-		return c.AbortBadRequest("Invalid request", err)
-	}
-
-	// 1. Fetch user by email
-	user, err := s.userRepo.GetByEmail(c.Request().Context(), req.Email)
+func (s *AuthService) Login(c *okapi.Context, input *dto.LoginRequest) error {
+	user, err := s.userRepo.GetByEmail(c.Request().Context(), input.Body.Email)
 	if err != nil {
 		return c.AbortUnauthorized("Invalid credentials")
 	}
 
-	// 2. Check password
-	if !user.CheckPassword(req.Password) {
+	if !user.CheckPassword(input.Body.Password) {
 		s.userRepo.IncrementFailedLogins(c.Request().Context(), user.ID)
 		return c.AbortUnauthorized("Invalid credentials")
 	}
 
-	// 3. Check if user is locked or inactive
 	if user.IsLocked() {
 		return c.AbortUnauthorized("Account is locked")
 	}
@@ -48,19 +40,17 @@ func (s *AuthService) Login(c *okapi.Context) error {
 		return c.AbortUnauthorized("Account is disabled")
 	}
 
-	// Reset failed logins on successful login
 	s.userRepo.UpdateLastLogin(c.Request().Context(), user.ID, c.Request().RemoteAddr)
 
-	// 4. Generate JWT
 	expirationTime := time.Now().Add(24 * time.Hour)
-	if req.RememberMe {
+	if input.Body.RememberMe {
 		expirationTime = time.Now().Add(30 * 24 * time.Hour)
 	}
 
 	claims := jwt.MapClaims{
 		"sub":   user.ID.String(),
 		"iss":   s.config.JWT.Issuer,
-		"aud":   s.config.JWT.Audience,
+		"aud":   "goma-admin",
 		"exp":   expirationTime.Unix(),
 		"iat":   time.Now().Unix(),
 		"email": user.Email,
@@ -73,8 +63,7 @@ func (s *AuthService) Login(c *okapi.Context) error {
 		return c.AbortInternalServerError("Token generation failed", err)
 	}
 
-	// 5. Construct Response
-	response := dto.AuthResponse{
+	return c.OK(dto.AuthResponse{
 		AccessToken: tokenString,
 		ExpiresAt:   expirationTime.Unix(),
 		TokenType:   "Bearer",
@@ -84,13 +73,9 @@ func (s *AuthService) Login(c *okapi.Context) error {
 			Name:  user.Name,
 			Roles: user.Role,
 		},
-	}
-
-	return c.OK(response)
+	})
 }
 
 func (s *AuthService) Logout(c *okapi.Context) error {
-	// For stateless JWT, logout is usually handled client-side by discarding the token.
-	// We just return a success message here.
 	return c.OK(okapi.M{"status": "ok", "message": "Logged out successfully"})
 }
