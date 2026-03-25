@@ -1,13 +1,9 @@
 package services
 
 import (
-	"strconv"
-
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-admin/internal/db/models"
-	"github.com/jkaninda/goma-admin/internal/db/repository"
+	"github.com/jkaninda/goma-admin/internal/models"
+	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/goma-admin/internal/dto"
-	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
 	"gorm.io/gorm"
 )
@@ -20,24 +16,27 @@ func NewRouteService(db *gorm.DB) *RouteService {
 	return &RouteService{repo: repository.NewRouteRepository(db)}
 }
 
-func (s RouteService) List(c *okapi.Context) error {
-	routes, err := s.repo.List(c.Request().Context())
+func (s RouteService) List(c *okapi.Context, input *dto.ListRequest) error {
+	instanceID := OptionalInstanceID(c)
+	page, size, offset := NormalizePageParams(input.Page, input.Size)
+
+	routes, total, err := s.repo.ListPaginated(c.Request().Context(), instanceID, size, offset)
 	if err != nil {
-		logger.Error("Error", "error", err)
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-	return c.OK(routes)
+	return Paginated(c, routes, total, page, size)
 }
 
-func (s RouteService) Create(c *okapi.Context) error {
-	routeRq := &dto.RouteRq{}
-	if err := c.Bind(routeRq); err != nil {
-		return c.AbortBadRequest("Bad request", err)
+func (s RouteService) Create(c *okapi.Context, input *dto.CreateRouteRq) error {
+	instanceID, err := RequireInstanceID(c)
+	if err != nil {
+		return c.AbortBadRequest("Instance selection required", err)
 	}
 
-	route := &models.Route{}
-	if err := goutils.DeepCopy(route, routeRq); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
+	route := &models.Route{
+		InstanceID: instanceID,
+		Name:       input.Body.Name,
+		Config:     input.Body.Config,
 	}
 
 	if err := s.repo.Create(c.Context(), route); err != nil {
@@ -47,43 +46,22 @@ func (s RouteService) Create(c *okapi.Context) error {
 	return c.Created(route)
 }
 
-func (s RouteService) Get(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+func (s RouteService) Get(c *okapi.Context, input *dto.RouteByIDRq) error {
+	route, err := s.repo.GetByID(c.Context(), uint(input.ID))
 	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	route, err := s.repo.GetByID(c.Context(), uint(id))
-	if err != nil {
-		logger.Error("Error retrieving route", "id", id, "error", err)
 		return c.AbortNotFound("Route not found", err)
 	}
-
 	return c.OK(route)
 }
 
-func (s RouteService) Update(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	routeRq := &dto.RouteRq{}
-	if err := c.Bind(routeRq); err != nil {
-		return c.AbortBadRequest("Bad request", err)
-	}
-
-	// Check if exists
-	route, err := s.repo.GetByID(c.Context(), uint(id))
+func (s RouteService) Update(c *okapi.Context, input *dto.UpdateRouteRq) error {
+	route, err := s.repo.GetByID(c.Context(), uint(input.ID))
 	if err != nil {
 		return c.AbortNotFound("Route not found", err)
 	}
 
-	if err := goutils.DeepCopy(route, routeRq); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
+	route.Name = input.Body.Name
+	route.Config = input.Body.Config
 
 	if err := s.repo.Update(c.Context(), route); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
@@ -92,32 +70,24 @@ func (s RouteService) Update(c *okapi.Context) error {
 	return c.OK(route)
 }
 
-func (s RouteService) Delete(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	if err := s.repo.Delete(c.Context(), uint(id)); err != nil {
-		logger.Error("Error deleting route", "id", id, "error", err)
+func (s RouteService) Delete(c *okapi.Context, input *dto.RouteByIDRq) error {
+	if err := s.repo.Delete(c.Context(), uint(input.ID)); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-
 	return c.NoContent()
 }
 
-func (s RouteService) FindByPath(c *okapi.Context) error {
-	path := c.Query("path")
-	if path == "" {
-		return c.AbortBadRequest("Path is required", nil)
+func (s RouteService) FindByPath(c *okapi.Context, input *dto.FindRouteByPathRq) error {
+	instanceID := OptionalInstanceID(c)
+	var routes []models.Route
+	var err error
+	if instanceID != nil {
+		routes, err = s.repo.FindByPathAndInstance(c.Context(), input.Path, *instanceID)
+	} else {
+		routes, err = s.repo.FindByPath(c.Context(), input.Path)
 	}
-
-	routes, err := s.repo.FindByPath(c.Context(), path)
 	if err != nil {
-		logger.Error("Error finding routes by path", "path", path, "error", err)
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-
 	return c.OK(routes)
 }

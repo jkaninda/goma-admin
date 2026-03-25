@@ -22,6 +22,8 @@ linters:
     - unparam
     - unused
   settings:
+    gocyclo:
+      min-complexity: 75
     revive:
       rules:
         - name: comment-spacings
@@ -31,7 +33,17 @@ linters:
       - linters:
           - dupl
           - lll
-        path: /*
+        path: pkg/*
+      - linters:
+          - dupl
+          - lll
+        path: internal/*
+      - linters:
+          - goconst
+        path: _test\.go
+      - linters:
+          - misspell
+        path: internal/services/seeder/constants\.go
     paths:
       - third_party$
       - builtin$

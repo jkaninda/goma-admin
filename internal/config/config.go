@@ -5,19 +5,14 @@ import (
 	"strings"
 
 	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-admin/internal/db/migration"
-	"github.com/jkaninda/goma-admin/internal/db/seed"
 	util "github.com/jkaninda/goma-admin/utils"
 	"github.com/jkaninda/okapi"
 	"github.com/jkaninda/okapi/okapicli"
-	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
-	// Load .env file if it exists
-	_ = godotenv.Load()
 	// Parse flags
 	if err := cli.Parse(); err != nil {
 		return nil, err
@@ -33,21 +28,17 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 			dbSslMode:  goutils.Env("GOMA_DB_SSL_MODE", "disable"),
 			dbURL:      goutils.Env("GOMA_DB_URL", ""),
 		},
-		Redis: RedisConfig{
-			URL: goutils.Env("GOMA_REDIS_URL", "redis://localhost:6379/0"),
-		},
 		Server: ServerConfig{
 			enableDocs:  goutils.EnvBool("GOMA_ENABLE_DOCS", true),
 			Port:        goutils.EnvInt("GOMA_PORT", port),
 			Environment: goutils.Env("GOMA_ENVIRONMENT", "development"),
 		},
 		Cors: CorsConfig{
-			AllowedOrigins: strings.Split(goutils.Env("GOMA_CORS_ALLOWED_ORIGINS", "http://localhost:5173"), ","),
+			AllowedOrigins: parseCorsOrigins(goutils.Env("GOMA_CORS_ALLOWED_ORIGINS", "")),
 		},
 		JWT: JWTConfig{
-			Secret:   goutils.Env("GOMA_JWT_SECRET", "default-secret-key"),
-			Issuer:   goutils.Env("GOMA_JWT_ISSUER", "goma-admin"),
-			Audience: goutils.Env("GOMA_JWT_AUDIENCE", "goma-admin"),
+			Secret: goutils.Env("GOMA_JWT_SECRET", "default-secret-key"),
+			Issuer: goutils.Env("GOMA_JWT_ISSUER", "goma-admin"),
 		},
 		Auth: AuthConfig{
 			AdminPassword: goutils.Env("GOMA_ADMIN_PASSWORD", "admin"),
@@ -55,6 +46,7 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 		Log: LogConfig{
 			Level: goutils.Env("GOMA_LOG_LEVEL", "info"),
 		},
+		WebDir: goutils.Env("GOMA_WEB_DIR", "web/dist"),
 	}
 	if err := cfg.initialize(app); err != nil {
 		return nil, err
@@ -95,10 +87,24 @@ func (c *Config) initialize(app *okapi.Okapi) error {
 		})
 	}
 	app.WithPort(c.Server.Port)
-	if err := migration.AutoMigrate(c.Database.DB); err != nil {
-		return fmt.Errorf("failed to run migrations, error:%w", err)
-	}
-	// Run migradion
-	seed.CreateDefaultAdmin(c.Database.DB)
+
+	goutils.SetEnv("ENV", goutils.Env("ENV", c.Server.Environment))
 	return nil
+}
+
+func parseCorsOrigins(raw string) []string {
+	if raw == "" {
+		return []string{"*"}
+	}
+	var origins []string
+	for _, s := range strings.Split(raw, ",") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			origins = append(origins, s)
+		}
+	}
+	if len(origins) == 0 {
+		return []string{"*"}
+	}
+	return origins
 }

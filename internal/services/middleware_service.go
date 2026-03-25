@@ -1,13 +1,9 @@
 package services
 
 import (
-	"strconv"
-
-	goutils "github.com/jkaninda/go-utils"
-	"github.com/jkaninda/goma-admin/internal/db/models"
-	"github.com/jkaninda/goma-admin/internal/db/repository"
+	"github.com/jkaninda/goma-admin/internal/models"
+	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/goma-admin/internal/dto"
-	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
 	"gorm.io/gorm"
 )
@@ -20,136 +16,91 @@ func NewMiddlewareService(db *gorm.DB) *MiddlewareService {
 	return &MiddlewareService{repo: repository.NewMiddlewareRepository(db)}
 }
 
-func (s MiddlewareService) List(c *okapi.Context) error {
-	middlewares, err := s.repo.List(c.Request().Context())
+func (s MiddlewareService) List(c *okapi.Context, input *dto.ListRequest) error {
+	instanceID := OptionalInstanceID(c)
+	page, size, offset := NormalizePageParams(input.Page, input.Size)
+
+	middlewares, total, err := s.repo.ListPaginated(c.Request().Context(), instanceID, size, offset)
 	if err != nil {
-		logger.Error("Error", "error", err)
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-	return c.OK(middlewares)
+	return Paginated(c, middlewares, total, page, size)
 }
 
-func (s MiddlewareService) Create(c *okapi.Context) error {
-	middlewareRq := &dto.MiddlewareRq{}
-	if err := c.Bind(middlewareRq); err != nil {
-		return c.AbortBadRequest("Bad request", err)
+func (s MiddlewareService) Create(c *okapi.Context, input *dto.CreateMiddlewareRq) error {
+	instanceID, err := RequireInstanceID(c)
+	if err != nil {
+		return c.AbortBadRequest("Instance selection required", err)
 	}
 
-	middleware := &models.Middleware{}
-	if err := goutils.DeepCopy(middleware, middlewareRq); err != nil {
+	mw := &models.Middleware{
+		InstanceID: instanceID,
+		Name:       input.Body.Name,
+		Type:       input.Body.Type,
+		Config:     input.Body.Config,
+	}
+
+	if err := s.repo.Create(c.Context(), mw); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
 
-	if err := s.repo.Create(c.Context(), middleware); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.Created(middleware)
+	return c.Created(mw)
 }
 
-func (s MiddlewareService) Get(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+func (s MiddlewareService) Get(c *okapi.Context, input *dto.MiddlewareByIDRq) error {
+	mw, err := s.repo.GetByID(c.Context(), uint(input.ID))
 	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	middleware, err := s.repo.GetByID(c.Context(), uint(id))
-	if err != nil {
-		logger.Error("Error retrieving middleware", "id", id, "error", err)
 		return c.AbortNotFound("Middleware not found", err)
 	}
-
-	return c.OK(middleware)
+	return c.OK(mw)
 }
 
-func (s MiddlewareService) Update(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	middlewareRq := &dto.MiddlewareRq{}
-	if err := c.Bind(middlewareRq); err != nil {
-		return c.AbortBadRequest("Bad request", err)
-	}
-
-	// Check if exists
-	middleware, err := s.repo.GetByID(c.Context(), uint(id))
+func (s MiddlewareService) Update(c *okapi.Context, input *dto.UpdateMiddlewareRq) error {
+	mw, err := s.repo.GetByID(c.Context(), uint(input.ID))
 	if err != nil {
 		return c.AbortNotFound("Middleware not found", err)
 	}
 
-	if err := goutils.DeepCopy(middleware, middlewareRq); err != nil {
+	mw.Name = input.Body.Name
+	mw.Type = input.Body.Type
+	mw.Config = input.Body.Config
+
+	if err := s.repo.Update(c.Context(), mw); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
 
-	if err := s.repo.Update(c.Context(), middleware); err != nil {
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.OK(middleware)
+	return c.OK(mw)
 }
 
-func (s MiddlewareService) Delete(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	if err := s.repo.Delete(c.Context(), uint(id)); err != nil {
-		logger.Error("Error deleting middleware", "id", id, "error", err)
+func (s MiddlewareService) Delete(c *okapi.Context, input *dto.MiddlewareByIDRq) error {
+	if err := s.repo.Delete(c.Context(), uint(input.ID)); err != nil {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-
 	return c.NoContent()
 }
 
-func (s MiddlewareService) Search(c *okapi.Context) error {
-	query := c.Query("q")
-	if query == "" {
-		return c.AbortBadRequest("Search query is required", nil)
-	}
-
-	middlewares, err := s.repo.Search(c.Context(), query)
+func (s MiddlewareService) Search(c *okapi.Context, input *dto.SearchMiddlewareRq) error {
+	middlewares, err := s.repo.Search(c.Context(), input.Query)
 	if err != nil {
-		logger.Error("Error searching middlewares", "query", query, "error", err)
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-
 	return c.OK(middlewares)
 }
 
 func (s MiddlewareService) Stats(c *okapi.Context) error {
-	stats, err := s.repo.GetMiddlewareStats(c.Context())
+	count, err := s.repo.Count(c.Context())
 	if err != nil {
-		logger.Error("Error retrieving middleware stats", "error", err)
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
-
-	return c.OK(stats)
+	return c.OK(okapi.M{"total": count})
 }
 
-func (s MiddlewareService) Usage(c *okapi.Context) error {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return c.AbortBadRequest("Invalid ID", err)
-	}
-
-	// First get the middleware to get its name
-	middleware, err := s.repo.GetByID(c.Context(), uint(id))
+func (s MiddlewareService) Usage(c *okapi.Context, input *dto.MiddlewareByIDRq) error {
+	mw, err := s.repo.GetByID(c.Context(), uint(input.ID))
 	if err != nil {
 		return c.AbortNotFound("Middleware not found", err)
 	}
-
-	routes, err := s.repo.GetRoutesByMiddleware(c.Context(), middleware.Name)
-	if err != nil {
-		logger.Error("Error retrieving middleware usage", "name", middleware.Name, "error", err)
-		return c.AbortInternalServerError("Internal Server Error", err)
-	}
-
-	return c.OK(routes)
+	// Find routes that reference this middleware by name in their config
+	// For now return the middleware info — route-middleware linking is done via config
+	return c.OK(okapi.M{"middleware": mw.Name, "message": "Check route configs for middleware references"})
 }

@@ -11,11 +11,10 @@ A comprehensive admin dashboard for managing Goma Gateway instances with visual 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
 - [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
-- [API Reference](#api-reference)
+- [Docker Deployment](#docker-deployment)
+- [Configuration](#configuration)
 - [Contributing](#contributing)
 - [Related Projects](#related-projects)
 
@@ -30,27 +29,6 @@ Goma Admin provides a centralized control plane for managing multiple Goma Gatew
 - Configuration versioning with rollback capabilities
 - Multi-environment support (dev, staging, production)
 
-## Features
-
-### Configuration Management
--  Visual route management with full CRUD operations
--  Middleware configuration interface
--  Configuration preview and validation
--  Version history and rollback capabilities
--  Optional Git integration for configuration versioning
-
-### Monitoring & Analytics
--  Real-time gateway status monitoring
--  Prometheus metrics visualization
--  API analytics and request monitoring
--  Advanced search and filtering
--  Comprehensive log viewer
-
-### Operations
--  Health checks and uptime monitoring
--  Request/response testing tool
--  Multi-instance support across environments
--  Hot-reload configuration updates
 
 ## Architecture
 ```mermaid
@@ -95,30 +73,17 @@ graph LR
 - **Web Dashboard**: Vue3 based UI for configuration and monitoring
 - **Dashboard API**: Go backend built with Okapi framework
 - **Config Store**: Persistent storage for configurations and audit logs
-- **Git Integration** (Optional): Version control for configurations
 
 **Data Plane:**
 - **Goma Gateway Instances**: Multiple gateway instances pulling configuration from the control plane
 
-## Tech Stack
 
-### Frontend
-- **Framework**: Vue 3 with Composition API
-- **Build Tool**: Vite
-- **UI Library**: Vuetify 3 or PrimeVue
-- **State Management**: Pinia
-- **HTTP Client**: Axios
-
-### Backend
-- **Language**: Go
-- **Framework**: [Okapi](https://github.com/jkaninda/okapi)
-- **Database**: PostgreSQL, MySQL and SQLite
 
 ## Getting Started
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.26
 - Node.js 18+ and npm/yarn
 
 
@@ -135,75 +100,44 @@ go run main.go
 
 ```
 
-### Configuration
+## Docker Deployment
 
+Run Goma Admin with Docker Compose:
 
-## API Reference
-
-### Provider API
-Implements the [Goma Gateway HTTP Provider Specification](https://github.com/jkaninda/goma-http-provider)
-```
-GET  /api/provider              # Combined routes and middlewares
-GET  /api/provider/routes       # Routes configuration
-GET  /api/provider/middlewares  # Middlewares configuration
-POST /api/provider/webhook      # Gateway health updates
+```bash
+cd examples/docker-deployment
+cp .env.example .env
+# Edit .env with your production values
+docker compose up -d
 ```
 
-### Admin API
-Management interface for the dashboard
+This starts Goma Admin with PostgreSQL. Access the dashboard at `http://localhost:9000`.
 
-#### Routes Management
-```
-GET    /api/v1/routes           # List all routes
-POST   /api/v1/routes           # Create new route
-GET    /api/v1/routes/:id       # Get route details
-PUT    /api/v1/routes/:id       # Update route
-DELETE /api/v1/routes/:id       # Delete route
-```
+See the full [Docker deployment example](examples/docker-deployment/) for details.
 
-#### Middlewares Management
-```
-GET    /api/v1/middlewares      # List all middlewares
-POST   /api/v1/middlewares      # Create middleware
-GET    /api/v1/middlewares/:id  # Get middleware details
-PUT    /api/v1/middlewares/:id  # Update middleware
-DELETE /api/v1/middlewares/:id  # Delete middleware
-```
+## Configuration
 
-#### Gateway Instances
-```
-GET    /api/v1/instances              # List gateway instances
-POST   /api/v1/instances              # Register new instance
-GET    /api/v1/instances/:id          # Get instance details
-PUT    /api/v1/instances/:id          # Update instance
-DELETE /api/v1/instances/:id          # Remove instance
-GET    /api/v1/instances/:id/health   # Instance health status
-GET    /api/v1/instances/:id/metrics  # Prometheus metrics
-```
+| Variable | Description | Default |
+|---|---|---|
+| `GOMA_DB_HOST` | PostgreSQL host | `localhost` |
+| `GOMA_DB_USER` | Database user | `goma` |
+| `GOMA_DB_PASSWORD` | Database password | `goma` |
+| `GOMA_DB_NAME` | Database name | `goma` |
+| `GOMA_DB_PORT` | Database port | `5432` |
+| `GOMA_DB_SSL_MODE` | SSL mode (`disable`, `require`) | `disable` |
+| `GOMA_DB_URL` | Full database URL (overrides individual DB vars) | — |
+| `GOMA_PORT` | HTTP server port | `9000` |
+| `GOMA_ENVIRONMENT` | Environment (`development`, `production`) | `development` |
+| `GOMA_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
+| `GOMA_JWT_SECRET` | JWT signing secret | `default-secret-key` |
+| `GOMA_JWT_ISSUER` | JWT issuer claim | `goma-admin` |
+| `GOMA_CORS_ALLOWED_ORIGINS` | CORS origins (comma-separated) | `*` |
+| `GOMA_ADMIN_EMAIL` | Default admin email | `admin@example.com` |
+| `GOMA_ADMIN_PASSWORD` | Default admin password | `admin` |
+| `GOMA_ENABLE_DOCS` | Enable OpenAPI documentation | `true` |
+| `GOMA_WEB_DIR` | Frontend assets directory | `web/dist` |
 
-#### Configuration History
-```
-GET    /api/v1/config/history          # List configuration versions
-POST   /api/v1/config/rollback/:version # Rollback to specific version
-GET    /api/v1/config/diff/:v1/:v2     # Compare configurations
-```
 
-#### Analytics & Monitoring
-```
-GET    /api/v1/analytics/overview    # Dashboard overview
-GET    /api/v1/analytics/requests    # Request statistics
-GET    /api/v1/analytics/errors      # Error tracking
-GET    /api/v1/logs                  # Gateway logs
-```
-
-#### Testing
-```
-POST   /api/v1/test/route            # Test route configuration
-POST   /api/v1/test/middleware       # Test middleware
-POST   /api/v1/validate/config       # Validate configuration
-```
-
-For detailed API documentation, see [API.md](docs/API.md).
 
 ## Contributing
 
@@ -223,16 +157,7 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 - **[Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)** - HTTP provider specification
 - **[Okapi](https://github.com/jkaninda/okapi)** - Go web framework
 
-## Roadmap
 
-- [ ] Complete core CRUD operations
-- [ ] Implement real-time metrics dashboard
-- [ ] Add authentication and authorization
-- [ ] Git-based configuration versioning
-- [ ] WebSocket support for live updates
-- [ ] Multi-user collaboration features
-- [ ] CI/CD pipeline integration
-- [ ] Helm charts for Kubernetes deployment
 
 ## License
 

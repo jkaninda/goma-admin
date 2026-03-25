@@ -6,12 +6,12 @@ import (
 
 type Config struct {
 	Database DatabaseConfig
-	Redis    RedisConfig
 	Server   ServerConfig
 	Cors     CorsConfig
 	JWT      JWTConfig
 	Auth     AuthConfig
 	Log      LogConfig
+	WebDir   string
 }
 
 type DatabaseConfig struct {
@@ -28,10 +28,6 @@ type AuthConfig struct {
 	AdminPassword string
 }
 
-type RedisConfig struct {
-	URL string
-}
-
 type ServerConfig struct {
 	Port        int
 	Environment string
@@ -43,9 +39,8 @@ type CorsConfig struct {
 }
 
 type JWTConfig struct {
-	Secret   string
-	Issuer   string
-	Audience string
+	Secret string
+	Issuer string
 }
 
 type LogConfig struct {

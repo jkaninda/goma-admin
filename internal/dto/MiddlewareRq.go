@@ -1,10 +1,28 @@
 package dto
 
-import "github.com/jkaninda/goma-admin/internal/db/models"
+import "github.com/jkaninda/goma-admin/internal/models"
 
-type MiddlewareRq struct {
-	Name  string             `json:"name" yaml:"name" required:"true" minLength:"2"`
-	Type  string             `json:"type" yaml:"type" required:"true"`
-	Paths models.StringArray `json:"paths,omitempty" yaml:"paths,omitempty"`
-	Rule  models.JSONB       `json:"rule,omitempty" yaml:"rule,omitempty"`
+type CreateMiddlewareRq struct {
+	Body struct {
+		Name   string      `json:"name" required:"true" minLength:"2" description:"Middleware name" example:"rate-limit"`
+		Type   string      `json:"type" required:"true" description:"Middleware type" example:"rateLimit"`
+		Config models.JSONB `json:"config" required:"true" description:"Full Goma middleware configuration (paths, rule, etc.)"`
+	} `json:"body"`
+}
+
+type UpdateMiddlewareRq struct {
+	ID   int `param:"id" required:"true" description:"Middleware ID"`
+	Body struct {
+		Name   string      `json:"name" required:"true" minLength:"2" description:"Middleware name"`
+		Type   string      `json:"type" required:"true" description:"Middleware type"`
+		Config models.JSONB `json:"config" required:"true" description:"Full Goma middleware configuration"`
+	} `json:"body"`
+}
+
+type MiddlewareByIDRq struct {
+	ID int `param:"id" required:"true" description:"Middleware ID"`
+}
+
+type SearchMiddlewareRq struct {
+	Query string `query:"q" required:"true" description:"Search query"`
 }

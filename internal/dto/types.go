@@ -1,38 +1,29 @@
 package dto
 
-type ResponseDto struct {
-	Success    bool   `json:"success"`
-	StatusCode string `json:"statusCode"`
-	Details    any    `json:"details,omitempty"`
-}
-
+// Response is the standard API response envelope.
 type Response[T any] struct {
-	ResponseDto
-	Data T `json:"data,omitempty"`
+	Success bool `json:"success"`
+	Data    T    `json:"data"`
 }
 
-func SuccessResponse[T any](message string, data T) Response[T] {
-	return Response[T]{
-		ResponseDto: ResponseDto{
-			Success: true,
-		},
-		Data: data,
-	}
+// PageableResponse is the paginated API response envelope.
+type PageableResponse[T any] struct {
+	Success  bool     `json:"success"`
+	Data     []T      `json:"data"`
+	Pageable Pageable `json:"pageable"`
 }
-func ErrorResponse(message string, err error) Response[any] {
-	return Response[any]{
-		ResponseDto: ResponseDto{
-			Success: false,
-			Details: err.Error(),
-		},
-	}
+
+// Pageable holds pagination metadata.
+type Pageable struct {
+	CurrentPage   int   `json:"current_page"`
+	Size          int   `json:"size"`
+	TotalPages    int   `json:"total_pages"`
+	TotalElements int64 `json:"total_elements"`
+	Empty         bool  `json:"empty"`
 }
-func ErrorResponseData(message string, err error, data any) Response[any] {
-	return Response[any]{
-		ResponseDto: ResponseDto{
-			Success: false,
-			Details: err,
-		},
-		Data: data,
-	}
+
+// ListRequest is the standard pagination request used by all list endpoints.
+type ListRequest struct {
+	Page int `query:"page" default:"0" description:"Page number (0-based)"`
+	Size int `query:"size" default:"20" description:"Page size (max 100)"`
 }
