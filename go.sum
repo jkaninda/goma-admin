@@ -38,6 +38,8 @@ github.com/jkaninda/logger v0.0.5 h1:fTHKgDsHtuN8rkSBvwe6QStfi8yIdm8O3r0g99dRDTY
 github.com/jkaninda/logger v0.0.5/go.mod h1:ZUXJ2BdxDPG6e8t6mbKhc2ZFaFi2Iuy/4ukquFrPkFE=
 github.com/jkaninda/okapi v0.4.0 h1:Uo/0DZEj3ZdCl9LE0SRcgp4MjooNCf72v1SJ1jo8CB4=
 github.com/jkaninda/okapi v0.4.0/go.mod h1:6d2hfxk7yDyzUdjUElOeLYk1XpqnhZGQm/mPz4Bz4Vc=
+github.com/jkaninda/okapi v0.4.1 h1:vW10kIxlevOEj5y6g8QMc9DCfTwrvOsn5yvORLbUwrY=
+github.com/jkaninda/okapi v0.4.1/go.mod h1:6d2hfxk7yDyzUdjUElOeLYk1XpqnhZGQm/mPz4Bz4Vc=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=

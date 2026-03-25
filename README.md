@@ -112,8 +112,7 @@ graph LR
 ### Backend
 - **Language**: Go
 - **Framework**: [Okapi](https://github.com/jkaninda/okapi)
-- **Database**: PostgreSQL (recommended) or SQLite
-- **Metrics**: Prometheus-compatible
+- **Database**: PostgreSQL, MySQL and SQLite
 
 ## Getting Started
 
@@ -121,8 +120,7 @@ graph LR
 
 - Go 1.21 or higher
 - Node.js 18+ and npm/yarn
-- PostgreSQL 13+ (or SQLite for development)
-- Docker and Docker Compose (optional)
+
 
 ### Installation
 ```bash
