@@ -171,19 +171,19 @@ gateway:
 ### Dashboard
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard.png" alt="Email Detail" width="900"/>
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard.png" alt="Dashboard" width="900"/>
 </p>
 
 ### Dashboard (Dark)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Email Detail" width="900"/>
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
 </p>
 
 ### Instances
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/instances.png" alt="Email Detail" width="900"/>
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/instances.png" alt="Instances" width="900"/>
 </p>
 
 
