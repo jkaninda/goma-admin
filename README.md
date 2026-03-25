@@ -1,6 +1,6 @@
 # Goma Admin
 
-A comprehensive admin dashboard for managing Goma Gateway instances with visual configuration, real-time monitoring, and multi-environment support.
+*Control Plane for Goma Gateway* — Manage, configure, and monitor distributed API gateways from a single, unified dashboard.
 
 [![CI](https://github.com/jkaninda/goma-admin/actions/workflows/ci.yml/badge.svg)](https://github.com/jkaninda/goma-admin/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jkaninda/goma-admin)](https://goreportcard.com/report/github.com/jkaninda/goma-admin)
@@ -141,6 +141,50 @@ See the full [Docker deployment example](examples/docker-deployment/) for detail
 | `GOMA_ENABLE_DOCS` | Enable OpenAPI documentation | `true` |
 | `GOMA_WEB_DIR` | Frontend assets directory | `web/dist` |
 
+## Goma Gateway Configuration
+
+Configure your Goma Gateway to use the HTTP provider:
+
+```yaml
+gateway:
+  providers:
+    http:
+      enabled: true
+      endpoint: "http://goma-admin:9000/api/v1/provider/{instance_name}"
+      interval: 60s
+      timeout: 10s
+      retryAttempts: 5
+      retryDelay: 3s
+      headers:
+        Authorization: "${INSTANCE_API_KEY}"
+```
+
+### Steps
+
+1. Create an 'instance' in Goma Admin
+2. Generate an 'API key'
+3. Configure your gateway with the HTTP provider
+4. Start receiving dynamic configuration
+
+## Screenshots
+
+### Dashboard
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard.png" alt="Dashboard" width="900"/>
+</p>
+
+### Dashboard (Dark)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
+</p>
+
+### Instances
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/instances.png" alt="Instances" width="900"/>
+</p>
 
 
 ## Contributing
