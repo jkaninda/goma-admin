@@ -20,6 +20,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Route{},
 		&models.Middleware{},
 		&models.APIKey{},
+		&models.ConfigSnapshot{},
+		&models.OAuthProvider{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate: %w", err)

@@ -23,8 +23,10 @@ export interface ImportResult {
 }
 
 export const middlewaresApi = {
-  list(page = 0, size = 20) {
-    return api.get('/middlewares', { params: { page, size } })
+  list(page = 0, size = 20, search = '') {
+    const params: Record<string, unknown> = { page, size }
+    if (search) params.q = search
+    return api.get('/middlewares', { params })
   },
   get(id: number) {
     return api.get<Middleware>(`/middlewares/${id}`)

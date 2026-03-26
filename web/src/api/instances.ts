@@ -14,6 +14,9 @@ export interface Instance {
   lastSeen: string | null
   status: string
   enabled: boolean
+  builtIn: boolean
+  writeConfig: boolean
+  includeDockerRoutes: boolean
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
@@ -78,6 +81,8 @@ export interface InstanceCreateRequest {
   version?: string
   region?: string
   tags?: string[]
+  writeConfig?: boolean
+  includeDockerRoutes?: boolean
 }
 
 export interface ImportResult {
@@ -98,6 +103,9 @@ export const instancesApi = {
   },
   update(id: number, data: Partial<InstanceCreateRequest>) {
     return api.put<Instance>(`/instances/${id}`, data)
+  },
+  patch(id: number, data: { writeConfig?: boolean; includeDockerRoutes?: boolean }) {
+    return api.patch<Instance>(`/instances/${id}`, data)
   },
   delete(id: number) {
     return api.delete(`/instances/${id}`)
@@ -124,5 +132,8 @@ export const instancesApi = {
   },
   copyTo(sourceId: number, targetId: number) {
     return api.post<ImportResult>(`/instances/${sourceId}/copy-to/${targetId}`)
+  },
+  checkHealth(id: number) {
+    return api.post<{ status: string }>(`/instances/${id}/check-health`)
   },
 }
