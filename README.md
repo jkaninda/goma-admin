@@ -109,7 +109,7 @@ go run main.go
 Run Goma Admin with Docker Compose:
 
 ```bash
-cd examples/docker-deployment
+cd examples
 cp .env.example .env
 # Edit .env with your production values
 docker compose up -d
@@ -117,7 +117,7 @@ docker compose up -d
 
 This starts Goma Admin with PostgreSQL. Access the dashboard at `http://localhost:9000`.
 
-See the full [Docker deployment example](examples/docker-deployment/) for details.
+See the full [Docker deployment example](https://github.com/jkaninda/goma-admin/tree/main/examples) for details.
 
 ## Configuration
 
