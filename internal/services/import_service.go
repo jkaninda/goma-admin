@@ -1,12 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/repository"
+	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
@@ -17,12 +19,14 @@ const fieldName = "name"
 type ImportService struct {
 	routeRepo      *repository.RouteRepository
 	middlewareRepo *repository.MiddlewareRepository
+	writer         *ProviderWriter
 }
 
-func NewImportService(db *gorm.DB) *ImportService {
+func NewImportService(db *gorm.DB, writer *ProviderWriter) *ImportService {
 	return &ImportService{
 		routeRepo:      repository.NewRouteRepository(db),
 		middlewareRepo: repository.NewMiddlewareRepository(db),
+		writer:         writer,
 	}
 }
 
@@ -98,6 +102,7 @@ func (s *ImportService) ImportRoutes(c *okapi.Context) error {
 		}
 	}
 
+	s.writeInstanceConfig(instanceID)
 	return c.OK(result)
 }
 
@@ -171,5 +176,17 @@ func (s *ImportService) ImportMiddlewares(c *okapi.Context) error {
 		}
 	}
 
+	s.writeInstanceConfig(instanceID)
 	return c.OK(result)
+}
+
+func (s *ImportService) writeInstanceConfig(instanceID uint) {
+	if s.writer == nil {
+		return
+	}
+	go func() {
+		if err := s.writer.WriteInstance(context.Background(), instanceID); err != nil {
+			logger.Error("Failed to write provider config after import", "instanceID", instanceID, "error", err)
+		}
+	}()
 }
