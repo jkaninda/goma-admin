@@ -137,7 +137,7 @@ See the full [Docker deployment example](examples/docker-deployment/) for detail
 | `GOMA_JWT_ISSUER` | JWT issuer claim | `goma-admin` |
 | `GOMA_CORS_ALLOWED_ORIGINS` | CORS origins (comma-separated) | `*` |
 | `GOMA_ADMIN_EMAIL` | Default admin email | `admin@example.com` |
-| `GOMA_ADMIN_PASSWORD` | Default admin password | `admin` |
+| `GOMA_ADMIN_PASSWORD` | Default admin password | `Admin@1234` |
 | `GOMA_ENABLE_DOCS` | Enable OpenAPI documentation | `true` |
 | `GOMA_WEB_DIR` | Frontend assets directory | `web/dist` |
 
@@ -161,10 +161,11 @@ gateway:
 
 ### Steps
 
-1. Create an 'instance' in Goma Admin
-2. Generate an 'API key'
-3. Configure your gateway with the HTTP provider
-4. Start receiving dynamic configuration
+1. Create an `instance` in Goma Admin
+3. Create/Import routes & middlewares
+3. Generate an `API key`
+4. Configure your gateway with the HTTP provider
+5. Start receiving dynamic configuration
 
 ## Screenshots
 
@@ -213,7 +214,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- Email: meAtjkaninda.com
+- Email: meAtjkaninda.dev
 - LinkedIn: [LinkedIn](https://www.linkedin.com/in/jkaninda)
 
 ---
