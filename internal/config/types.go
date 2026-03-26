@@ -1,17 +1,30 @@
 package config
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
 type Config struct {
-	Database DatabaseConfig
-	Server   ServerConfig
-	Cors     CorsConfig
-	JWT      JWTConfig
-	Auth     AuthConfig
-	Log      LogConfig
-	WebDir   string
+	Database     DatabaseConfig
+	Server       ServerConfig
+	Cors         CorsConfig
+	JWT          JWTConfig
+	Auth         AuthConfig
+	OAuth        OAuthConfig
+	Log          LogConfig
+	Docker       DockerConfig
+	HealthCheck  HealthCheckConfig
+	ProvidersDir string
+	WebDir       string
+}
+
+type DockerConfig struct {
+	Enabled      bool
+	DockerHost   string
+	PollInterval time.Duration
+	EnableSwarm  bool
 }
 
 type DatabaseConfig struct {
@@ -46,4 +59,14 @@ type JWTConfig struct {
 
 type LogConfig struct {
 	Level string
+}
+
+type HealthCheckConfig struct {
+	Enabled  bool
+	Interval time.Duration
+	Timeout  time.Duration
+}
+
+type OAuthConfig struct {
+	BaseURL string // Base URL for OAuth callbacks, e.g. "http://localhost:8080"
 }

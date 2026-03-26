@@ -10,16 +10,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateAdminUser creates the default admin user if no admin users exist
+// CreateAdminUser creates the default admin user only if the users table is empty.
 func CreateAdminUser(db *gorm.DB, auth config.AuthConfig) error {
 	ctx := context.Background()
 	repo := repository.NewUserRepository(db)
 
-	exists, err := repo.ExistsByEmail(ctx, auth.AdminEmail)
-	if err != nil {
+	// Skip seeding if any users exist
+	var count int64
+	if err := db.WithContext(ctx).Unscoped().Model(&models.User{}).Count(&count).Error; err != nil {
 		return err
 	}
-	if exists {
+	if count > 0 {
 		return nil
 	}
 

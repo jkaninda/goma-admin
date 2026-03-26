@@ -62,6 +62,106 @@
         </div>
       </div>
 
+      <div class="dashboard-panels">
+        <!-- Docker Provider Card -->
+        <div v-if="dockerStatus" class="card docker-card">
+          <div class="card-header">
+            <div class="docker-header-left">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              <h2>Docker Provider</h2>
+            </div>
+            <div class="docker-header-right">
+              <span :class="['badge', dockerStatus.connected ? 'badge-success' : 'badge-danger']">
+                {{ dockerStatus.connected ? 'Connected' : 'Disconnected' }}
+              </span>
+              <button class="btn btn-secondary btn-sm" :disabled="syncing" @click="triggerSync">
+                <svg v-if="syncing" width="14" height="14" class="spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <svg v-else width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {{ syncing ? 'Syncing...' : 'Sync Now' }}
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="docker-stats">
+              <div class="docker-stat">
+                <span class="docker-stat-value">{{ dockerStatus.routeCount }}</span>
+                <span class="docker-stat-label">Discovered Routes</span>
+              </div>
+              <div class="docker-stat">
+                <span class="docker-stat-value">{{ dockerStatus.swarmMode ? 'Swarm' : 'Standalone' }}</span>
+                <span class="docker-stat-label">Mode</span>
+              </div>
+              <div class="docker-stat">
+                <span class="docker-stat-value">{{ formatLastSync(dockerStatus.lastSync) }}</span>
+                <span class="docker-stat-label">Last Sync</span>
+              </div>
+            </div>
+            <div v-if="dockerEvents.length" class="docker-events">
+              <div class="docker-events-header">
+                <span class="docker-events-title">Live Activity</span>
+                <span :class="['sse-indicator', sseConnected ? 'sse-connected' : 'sse-disconnected']"></span>
+              </div>
+              <div class="docker-event-list">
+                <div v-for="(evt, i) in dockerEvents" :key="i" class="docker-event-item">
+                  <span :class="['docker-event-dot', `event-${evt.type}`]"></span>
+                  <span class="docker-event-msg">{{ evt.message }}</span>
+                  <span class="docker-event-time">{{ formatEventTime(evt.timestamp) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity (Config SSE) -->
+        <div v-if="configEvents.length" class="card activity-card">
+          <div class="card-header">
+            <div class="docker-header-left">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <h2>Recent Activity</h2>
+            </div>
+            <span :class="['sse-indicator', configSseConnected ? 'sse-connected' : 'sse-disconnected']"></span>
+          </div>
+          <div class="card-body">
+            <div class="docker-event-list">
+              <div v-for="(evt, i) in configEvents" :key="i" class="docker-event-item">
+                <span :class="['docker-event-dot', `event-${evt.resource}`]"></span>
+                <span class="docker-event-msg">{{ evt.message }}</span>
+                <span class="docker-event-time">{{ formatEventTime(evt.timestamp) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Instances Health -->
+        <div v-if="instances.length" class="card">
+          <div class="card-header">
+            <h2>Instances</h2>
+            <router-link to="/instances" class="btn btn-secondary btn-sm">View All</router-link>
+          </div>
+          <div class="card-body instance-list-body">
+            <div v-for="inst in instances" :key="inst.id" class="instance-row">
+              <div class="instance-row-left">
+                <span :class="['instance-dot', `dot-${inst.status}`]"></span>
+                <router-link :to="`/instances/${inst.id}`" class="instance-name">{{ inst.name }}</router-link>
+                <span v-if="inst.builtIn" class="badge badge-info">Built-in</span>
+              </div>
+              <div class="instance-row-right">
+                <span class="instance-meta">{{ inst.routes?.length || 0 }} routes</span>
+                <span :class="['badge', envBadge(inst.environment)]">{{ inst.environment }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick actions -->
       <div class="card quick-actions-card">
         <div class="card-header">
@@ -110,19 +210,148 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { dashboardApi, type DashboardStats } from '@/api/dashboard'
+import { dockerApi, type DockerStatus, type DockerEvent } from '@/api/docker'
+import { instancesApi, type Instance } from '@/api/instances'
+import { connectConfigSSE, type ConfigEvent } from '@/api/events'
 import { useInstanceStore } from '@/stores/instance'
+
+const MAX_EVENTS = 5
 
 const instanceStore = useInstanceStore()
 const loading = ref(true)
+const syncing = ref(false)
 const data = ref<DashboardStats>({ users: 0, instances: 0, middlewares: 0, routes: 0 })
+const dockerStatus = ref<DockerStatus | null>(null)
+const instances = ref<Instance[]>([])
+const dockerEvents = ref<DockerEvent[]>([])
+const sseConnected = ref(false)
+const configEvents = ref<ConfigEvent[]>([])
+const configSseConnected = ref(false)
+let eventSource: EventSource | null = null
+let configEventSource: EventSource | null = null
+
+function envBadge(env: string): string {
+  const map: Record<string, string> = {
+    production: 'badge-danger',
+    staging: 'badge-warning',
+    development: 'badge-info',
+    testing: 'badge-neutral',
+  }
+  return map[env] || 'badge-neutral'
+}
+
+function formatLastSync(lastSync: string): string {
+  if (!lastSync || lastSync === '0001-01-01T00:00:00Z') return 'Never'
+  const date = new Date(lastSync)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return `${diffSec}s ago`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  return date.toLocaleDateString()
+}
+
+function formatEventTime(ts: string): string {
+  if (!ts) return ''
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+function connectSSE() {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+
+  if (!dockerStatus.value?.enabled) return
+
+  eventSource = dockerApi.events(
+    (evt: DockerEvent) => {
+      dockerEvents.value = [evt, ...dockerEvents.value].slice(0, MAX_EVENTS)
+
+      // Update route count live when routes change
+      if (evt.type === 'routes_changed' || evt.type === 'sync_completed') {
+        if (evt.routeCount !== undefined && dockerStatus.value) {
+          dockerStatus.value = { ...dockerStatus.value, routeCount: evt.routeCount, lastSync: evt.timestamp }
+        }
+        // Refresh dashboard stats when routes change
+        if (evt.type === 'routes_changed') {
+          dashboardApi.getStats().then(res => { data.value = res.data }).catch(() => {})
+        }
+      }
+    },
+    (status: DockerStatus) => {
+      dockerStatus.value = status
+    },
+  )
+
+  eventSource.onopen = () => { sseConnected.value = true }
+  eventSource.onerror = () => { sseConnected.value = false }
+}
+
+function connectConfigEvents() {
+  if (configEventSource) {
+    configEventSource.close()
+    configEventSource = null
+  }
+
+  configEventSource = connectConfigSSE((evt: ConfigEvent) => {
+    configEvents.value = [evt, ...configEvents.value].slice(0, MAX_EVENTS)
+
+    // Auto-refresh dashboard stats on any mutation event
+    if (evt.resource === 'route' || evt.resource === 'middleware' || evt.resource === 'instance') {
+      dashboardApi.getStats().then(res => { data.value = res.data }).catch(() => {})
+    }
+  })
+
+  configEventSource.onopen = () => { configSseConnected.value = true }
+  configEventSource.onerror = () => { configSseConnected.value = false }
+}
+
+async function triggerSync() {
+  syncing.value = true
+  try {
+    await dockerApi.sync()
+    const [statusRes, statsRes] = await Promise.all([
+      dockerApi.status(),
+      dashboardApi.getStats(),
+    ])
+    dockerStatus.value = statusRes.data
+    data.value = statsRes.data
+  } catch {
+    // handle error
+  } finally {
+    syncing.value = false
+  }
+}
 
 async function fetchStats() {
   loading.value = true
   try {
-    const res = await dashboardApi.getStats()
-    data.value = res.data
+    const [statsRes, instancesRes] = await Promise.all([
+      dashboardApi.getStats(),
+      instancesApi.list(),
+    ])
+    data.value = statsRes.data
+    instances.value = instancesRes.data
+
+    // Connect config SSE for live activity feed
+    connectConfigEvents()
+
+    // Fetch Docker status if any built-in instance exists
+    try {
+      const dockerRes = await dockerApi.status()
+      if (dockerRes.data.enabled) {
+        dockerStatus.value = dockerRes.data
+        connectSSE()
+      }
+    } catch {
+      // Docker provider not available
+    }
   } catch {
     // silently handle - stats will show zeros
   } finally {
@@ -132,6 +361,16 @@ async function fetchStats() {
 
 watch(() => instanceStore.currentInstanceId, fetchStats)
 onMounted(fetchStats)
+onUnmounted(() => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+  if (configEventSource) {
+    configEventSource.close()
+    configEventSource = null
+  }
+})
 </script>
 
 <style scoped>
@@ -151,6 +390,223 @@ onMounted(fetchStats)
   box-shadow: var(--shadow-md);
 }
 
+/* Dashboard panels */
+.dashboard-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Docker card */
+.docker-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.docker-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.docker-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.docker-stat {
+  text-align: center;
+  padding: 12px 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+}
+
+.docker-stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.docker-stat-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Docker live events */
+.docker-events {
+  margin-top: 16px;
+  border-top: 1px solid var(--border-secondary);
+  padding-top: 14px;
+}
+
+.docker-events-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.docker-events-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sse-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.sse-connected {
+  background: var(--success-500);
+  box-shadow: 0 0 6px var(--success-500);
+}
+
+.sse-disconnected {
+  background: var(--text-muted);
+}
+
+.docker-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docker-event-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  font-size: 12px;
+  animation: fadeSlideIn 200ms ease;
+}
+
+.docker-event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.event-sync_started { background: var(--primary-500); }
+.event-sync_completed { background: var(--success-500); }
+.event-routes_changed { background: var(--warning-500); }
+.event-sync_error { background: var(--danger-500); }
+.event-connected { background: var(--success-500); }
+
+/* Config event resource-type dots */
+.event-route { background: var(--success-500); }
+.event-middleware { background: var(--warning-500); }
+.event-instance { background: var(--primary-500); }
+
+.docker-event-msg {
+  flex: 1;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docker-event-time {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Instance list */
+.instance-list-body {
+  padding: 0 !important;
+}
+
+.instance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-secondary);
+  transition: background var(--transition);
+}
+
+.instance-row:last-child {
+  border-bottom: none;
+}
+
+.instance-row:hover {
+  background: var(--bg-hover);
+}
+
+.instance-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.instance-row-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.instance-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-active { background: var(--success-500); }
+.dot-inactive { background: var(--text-muted); }
+.dot-unhealthy { background: var(--danger-500); }
+.dot-unknown { background: var(--warning-500); }
+
+.instance-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.instance-name:hover {
+  color: var(--primary-600);
+}
+
+.instance-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Quick actions */
 .quick-actions-card {
   margin-top: 4px;
 }

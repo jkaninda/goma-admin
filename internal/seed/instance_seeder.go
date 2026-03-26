@@ -23,12 +23,14 @@ func CreateDefaultInstance(db *gorm.DB) error {
 	}
 
 	instance := &models.Instance{
-		Name:        "default",
-		Environment: "development",
-		Description: "Default gateway instance",
-		Endpoint:    "http://localhost:9000",
-		Status:      "active",
-		Enabled:     true,
+		Name:                "default",
+		Environment:         "development",
+		Description:         "Default gateway instance",
+		Endpoint:            "http://localhost:9000",
+		Status:              "active",
+		Enabled:             true,
+		WriteConfig:         true,
+		IncludeDockerRoutes: true,
 		Metadata: models.JSONB{
 			"created_by": "system",
 			"is_seed":    true,

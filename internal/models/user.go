@@ -11,13 +11,14 @@ import (
 type User struct {
 	ID            uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id" yaml:"id"`
 	Email         string         `gorm:"uniqueIndex;not null;size:255" json:"email" yaml:"email"`
-	Password      string         `gorm:"not null" json:"-" yaml:"-"`
+	Password      string         `json:"-" yaml:"-"`
 	Name          string         `gorm:"size:255" json:"name" yaml:"name"`
-	Username      string         `gorm:"uniqueIndex;size:100" json:"username,omitempty" yaml:"username,omitempty"`
 	Avatar        string         `gorm:"size:500" json:"avatar,omitempty" yaml:"avatar,omitempty"`
 	Role          string         `gorm:"size:50;default:'user';index" json:"role" yaml:"role"` // admin, user, viewer, etc.
 	EmailVerified bool           `gorm:"default:false;index" json:"emailVerified" yaml:"emailVerified"`
 	Active        bool           `gorm:"default:true;index" json:"active" yaml:"active"`
+	OAuthProvider string         `gorm:"size:50;index" json:"oauthProvider,omitempty" yaml:"oauthProvider,omitempty"` // google, github, or empty for local
+	OAuthID       string         `gorm:"size:255;index" json:"-" yaml:"-"`                                            // Provider-specific user ID
 	LastLoginAt   *time.Time     `json:"lastLoginAt,omitempty" yaml:"lastLoginAt,omitempty"`
 	LastLoginIP   string         `gorm:"size:45" json:"lastLoginIp,omitempty" yaml:"lastLoginIp,omitempty"`
 	FailedLogins  int            `gorm:"default:0" json:"-" yaml:"-"`
@@ -30,6 +31,11 @@ type User struct {
 	// Associations
 	Sessions  []UserSession `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-" yaml:"-"`
 	AuditLogs []AuditLog    `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-" yaml:"-"`
+}
+
+// IsOAuthUser returns true if the user was created via an OAuth provider.
+func (u *User) IsOAuthUser() bool {
+	return u.OAuthProvider != ""
 }
 
 // UserSession represents a user's login session

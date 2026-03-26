@@ -6,7 +6,8 @@ import (
 )
 
 type Auth struct {
-	JWT *okapi.JWTAuth
+	JWT     *okapi.JWTAuth
+	SSEAuth *okapi.JWTAuth
 }
 
 func NewAuth(conf *config.Config) *Auth {
@@ -21,5 +22,17 @@ func NewAuth(conf *config.Config) *Auth {
 			"role":    "role",
 		},
 	}
-	return &Auth{JWT: jwtAuth}
+	// SSE endpoints use query param auth since EventSource cannot send headers.
+	sseAuth := &okapi.JWTAuth{
+		SigningSecret: []byte(conf.JWT.Secret),
+		TokenLookup:   "query:token",
+		Issuer:        conf.JWT.Issuer,
+		Audience:      "goma-admin",
+		ForwardClaims: map[string]string{
+			"user_id": "sub",
+			"email":   "email",
+			"role":    "role",
+		},
+	}
+	return &Auth{JWT: jwtAuth, SSEAuth: sseAuth}
 }

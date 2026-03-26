@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jkaninda/goma-admin/internal/config"
+	"github.com/jkaninda/goma-admin/internal/docker"
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/middlewares"
 	"github.com/jkaninda/goma-admin/internal/models"
@@ -17,11 +18,13 @@ import (
 )
 
 type Router struct {
-	app    *okapi.Okapi
-	config *config.Config
-	cxt    context.Context
-	group  *okapi.Group
-	auth   *middlewares.Auth
+	app            *okapi.Okapi
+	config         *config.Config
+	cxt            context.Context
+	group          *okapi.Group
+	auth           *middlewares.Auth
+	dockerProvider *docker.Provider
+	eventBus       *services.EventBus
 }
 
 var (
@@ -32,28 +35,45 @@ var (
 	importService         *services.ImportService
 	instanceConfigService *services.InstanceConfigService
 	authService           *services.AuthService
+	oauthService          *services.OAuthService
 	instanceService       *services.InstanceService
 	apiKeyService         *services.APIKeyService
 	profileService        *services.ProfileService
+	auditService          *services.AuditService
+	metricsService        *services.MetricsService
+	userService           *services.UserService
 )
 
-func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config) *Router {
+// SetDockerProvider sets the Docker provider after it has been initialized.
+func (r *Router) SetDockerProvider(p *docker.Provider) {
+	r.dockerProvider = p
+}
+
+func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config, dockerProvider *docker.Provider) *Router {
+	writer := services.NewProviderWriter(conf.ProvidersDir, conf.Database.DB)
+	eventBus := services.NewEventBus()
+	auditService = services.NewAuditService(conf.Database.DB)
 	authService = services.NewAuthService(conf)
-	instanceService = services.NewInstanceService(conf.Database.DB)
+	oauthService = services.NewOAuthService(conf)
+	userService = services.NewUserService(conf.Database.DB)
+	instanceService = services.NewInstanceService(conf.Database.DB, writer, eventBus)
 	commonService = services.NewCommonService(conf.Database.DB)
-	routeService = services.NewRouteService(conf.Database.DB)
-	middlewareService = services.NewMiddlewareService(conf.Database.DB)
+	routeService = services.NewRouteService(conf.Database.DB, writer, eventBus, auditService)
+	middlewareService = services.NewMiddlewareService(conf.Database.DB, writer, eventBus, auditService)
 	importService = services.NewImportService(conf.Database.DB)
-	instanceConfigService = services.NewInstanceConfigService(conf.Database.DB)
+	instanceConfigService = services.NewInstanceConfigService(conf.Database.DB, writer, eventBus)
 	providerService = services.NewProviderService(conf.Database.DB)
 	apiKeyService = services.NewAPIKeyService(conf.Database.DB)
 	profileService = services.NewProfileService(conf.Database.DB)
+	metricsService = services.NewMetricsService(conf.Database.DB)
 	return &Router{
-		app:    app,
-		config: conf,
-		cxt:    ctx,
-		group:  &okapi.Group{Prefix: "api/v1"},
-		auth:   middlewares.NewAuth(conf),
+		app:            app,
+		config:         conf,
+		cxt:            ctx,
+		group:          &okapi.Group{Prefix: "api/v1"},
+		auth:           middlewares.NewAuth(conf),
+		dockerProvider: dockerProvider,
+		eventBus:       eventBus,
 	}
 }
 
@@ -76,6 +96,11 @@ func (r *Router) RegisterRoutes() {
 	r.app.Register(r.instanceRoutes()...)
 	r.app.Register(r.apiKeyRoutes()...)
 	r.app.Register(r.profileRoutes()...)
+	r.app.Register(r.dockerRoutes()...)
+	r.app.Register(r.userRoutes()...)
+	r.app.Register(r.auditRoutes()...)
+	r.app.Register(r.metricsRoutes()...)
+	r.app.Register(r.eventRoutes()...)
 
 	// SPA serving
 	r.registerSPA()
@@ -115,6 +140,7 @@ func (r *Router) dashboardRoute() okapi.RouteDefinition {
 func (r *Router) gatewayRoutes() []okapi.RouteDefinition {
 	group := r.group.Group("/routes").WithTags([]string{"Routes"})
 	group.Use(r.auth.JWT.Middleware)
+	group.Use(middlewares.RequireRole(models.RoleUser))
 	return []okapi.RouteDefinition{
 		{
 			Path: "", Method: http.MethodGet, Group: group,
@@ -169,6 +195,7 @@ func (r *Router) gatewayRoutes() []okapi.RouteDefinition {
 func (r *Router) middlewareRoutes() []okapi.RouteDefinition {
 	group := r.group.Group("/middlewares").WithTags([]string{"Middlewares"})
 	group.Use(r.auth.JWT.Middleware)
+	group.Use(middlewares.RequireRole(models.RoleUser))
 	return []okapi.RouteDefinition{
 		{
 			Path: "", Method: http.MethodGet, Group: group,
@@ -237,6 +264,7 @@ func (r *Router) middlewareRoutes() []okapi.RouteDefinition {
 func (r *Router) importRoutes() []okapi.RouteDefinition {
 	group := r.group.Group("/import").WithTags([]string{"Import"})
 	group.Use(r.auth.JWT.Middleware)
+	group.Use(middlewares.RequireRole(models.RoleAdmin))
 	return []okapi.RouteDefinition{
 		{
 			Path: "/routes", Method: http.MethodPost, Group: group,

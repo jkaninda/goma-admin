@@ -12,6 +12,7 @@
           </svg>
         </router-link>
         <h1>{{ instance.name }}</h1>
+        <span v-if="instance.builtIn" class="badge badge-info">Built-in</span>
         <span :class="['badge', statusBadge(instance.status)]">{{ instance.status }}</span>
       </div>
 
@@ -27,6 +28,21 @@
                 <dt>Environment</dt>
                 <dd>
                   <span :class="['badge', envBadge(instance.environment)]">{{ instance.environment }}</span>
+                </dd>
+              </div>
+              <div class="detail-item">
+                <dt>Health Status</dt>
+                <dd>
+                  <span :class="['badge', statusBadge(instance.status)]">{{ instance.status }}</span>
+                  <span v-if="instance.lastSeen" class="last-seen-text">{{ relativeTime(instance.lastSeen) }}</span>
+                </dd>
+              </div>
+              <div v-if="!instance.builtIn && instance.healthEndpoint" class="detail-item">
+                <dt>Health Check</dt>
+                <dd>
+                  <button class="btn btn-secondary btn-sm" :disabled="checking" @click="checkHealth">
+                    {{ checking ? 'Checking...' : 'Check Health' }}
+                  </button>
                 </dd>
               </div>
               <div class="detail-item">
@@ -50,6 +66,77 @@
                 <dd class="tags-list">
                   <span v-for="tag in instance.tags" :key="tag" class="badge badge-info">{{ tag }}</span>
                 </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <!-- Provider Settings Card -->
+        <div v-if="!instance.builtIn" class="card">
+          <div class="card-header">
+            <h2>Provider Settings</h2>
+          </div>
+          <div class="card-body">
+            <dl class="detail-list">
+              <div class="detail-item">
+                <dt>Write Config to Disk</dt>
+                <dd>
+                  <button
+                    :class="['toggle-btn', { active: instance.writeConfig }]"
+                    @click="toggleField('writeConfig', !instance.writeConfig)"
+                    :disabled="saving"
+                  >
+                    <span class="toggle-slider"></span>
+                  </button>
+                  <span class="toggle-hint">{{ instance.writeConfig ? 'Enabled' : 'Disabled' }}</span>
+                </dd>
+              </div>
+              <div class="detail-item">
+                <dt>Include Docker Routes</dt>
+                <dd>
+                  <button
+                    :class="['toggle-btn', { active: instance.includeDockerRoutes }]"
+                    @click="toggleField('includeDockerRoutes', !instance.includeDockerRoutes)"
+                    :disabled="saving"
+                  >
+                    <span class="toggle-slider"></span>
+                  </button>
+                  <span class="toggle-hint">{{ instance.includeDockerRoutes ? 'Writes docker-provider.yaml' : 'Disabled' }}</span>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <!-- Docker Status Card (only for built-in Docker provider) -->
+        <div v-if="instance.builtIn && dockerStatus" class="card">
+          <div class="card-header">
+            <h2>Docker Provider</h2>
+            <button class="btn btn-secondary btn-sm" :disabled="syncing" @click="triggerSync">
+              {{ syncing ? 'Syncing...' : 'Sync Now' }}
+            </button>
+          </div>
+          <div class="card-body">
+            <dl class="detail-list">
+              <div class="detail-item">
+                <dt>Connection</dt>
+                <dd>
+                  <span :class="['badge', dockerStatus.connected ? 'badge-success' : 'badge-danger']">
+                    {{ dockerStatus.connected ? 'Connected' : 'Disconnected' }}
+                  </span>
+                </dd>
+              </div>
+              <div class="detail-item">
+                <dt>Swarm Mode</dt>
+                <dd>{{ dockerStatus.swarmMode ? 'Yes' : 'No' }}</dd>
+              </div>
+              <div class="detail-item">
+                <dt>Discovered Routes</dt>
+                <dd>{{ dockerStatus.routeCount }}</dd>
+              </div>
+              <div v-if="dockerStatus.lastSync" class="detail-item">
+                <dt>Last Sync</dt>
+                <dd>{{ new Date(dockerStatus.lastSync).toLocaleString() }}</dd>
               </div>
             </dl>
           </div>
@@ -115,11 +202,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { instancesApi, type Instance } from '@/api/instances'
+import { dockerApi, type DockerStatus } from '@/api/docker'
 
 const props = defineProps<{ id: string }>()
 
 const loading = ref(true)
+const syncing = ref(false)
+const saving = ref(false)
+const checking = ref(false)
 const instance = ref<Instance | null>(null)
+const dockerStatus = ref<DockerStatus | null>(null)
 
 function statusBadge(status: string): string {
   const map: Record<string, string> = {
@@ -154,10 +246,80 @@ function isRouteEnabled(route: any): boolean {
   return route.config?.enabled ?? route.enabled ?? true
 }
 
+function relativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return `${diffSec}s ago`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  return `${diffDay}d ago`
+}
+
+async function checkHealth() {
+  if (!instance.value) return
+  checking.value = true
+  try {
+    await instancesApi.checkHealth(instance.value.id)
+    // Refresh instance data to get updated status and lastSeen
+    const res = await instancesApi.get(instance.value.id)
+    instance.value = res.data
+  } catch {
+    // handle error
+  } finally {
+    checking.value = false
+  }
+}
+
+async function toggleField(field: 'writeConfig' | 'includeDockerRoutes', value: boolean) {
+  if (!instance.value) return
+  saving.value = true
+  try {
+    const res = await instancesApi.patch(instance.value.id, { [field]: value })
+    instance.value = res.data
+  } catch {
+    // handle error
+  } finally {
+    saving.value = false
+  }
+}
+
+async function triggerSync() {
+  syncing.value = true
+  try {
+    await dockerApi.sync()
+    // Refresh both docker status and instance data
+    const [statusRes, instRes] = await Promise.all([
+      dockerApi.status(),
+      instancesApi.get(props.id),
+    ])
+    dockerStatus.value = statusRes.data
+    instance.value = instRes.data
+  } catch {
+    // handle error
+  } finally {
+    syncing.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const res = await instancesApi.get(props.id)
     instance.value = res.data
+
+    // Fetch Docker status if this is a built-in instance
+    if (instance.value?.builtIn) {
+      try {
+        const statusRes = await dockerApi.status()
+        dockerStatus.value = statusRes.data
+      } catch {
+        // Docker status not available
+      }
+    }
   } catch {
     // handle error
   } finally {
@@ -272,5 +434,22 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.toggle-hint {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.detail-item dd {
+  display: flex;
+  align-items: center;
+}
+
+.last-seen-text {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 </style>

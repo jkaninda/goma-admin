@@ -60,7 +60,6 @@ func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
 		Updates(map[string]interface{}{
 			"email":          user.Email,
 			"name":           user.Name,
-			"username":       user.Username,
 			"avatar":         user.Avatar,
 			"role":           user.Role,
 			"email_verified": user.EmailVerified,
@@ -107,6 +106,53 @@ func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 		Count(&count).Error
 
 	return count > 0, err
+}
+
+// GetByOAuth retrieves a user by OAuth provider and provider-specific ID.
+func (r *UserRepository) GetByOAuth(ctx context.Context, provider, oauthID string) (*models.User, error) {
+	var user models.User
+	err := r.db.WithContext(ctx).
+		Where("oauth_provider = ? AND oauth_id = ?", provider, oauthID).
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// List returns a paginated list of users with optional filters.
+func (r *UserRepository) List(ctx context.Context, page, pageSize int, role, search string) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	q := r.db.WithContext(ctx).Model(&models.User{})
+	if role != "" {
+		q = q.Where("role = ?", role)
+	}
+	if search != "" {
+		like := "%" + search + "%"
+		q = q.Where("name ILIKE ? OR email ILIKE ?", like, like)
+	}
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+
+	err := q.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&users).Error
+	return users, total, err
+}
+
+// Delete soft-deletes a user.
+func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&models.User{}, "id = ?", id).Error
 }
 
 // Count returns total number of users

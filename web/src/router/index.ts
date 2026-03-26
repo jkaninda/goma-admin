@@ -12,6 +12,11 @@ const router = createRouter({
           name: 'login',
           component: () => import('@/views/auth/LoginView.vue'),
         },
+        {
+          path: 'oauth/callback',
+          name: 'oauth-callback',
+          component: () => import('@/views/auth/OAuthCallbackView.vue'),
+        },
       ],
     },
     {
@@ -58,6 +63,11 @@ const router = createRouter({
           props: true,
         },
         {
+          path: 'audit',
+          name: 'audit',
+          component: () => import('@/views/audit/AuditLogView.vue'),
+        },
+        {
           path: 'api-keys',
           name: 'api-keys',
           component: () => import('@/views/apikeys/ApiKeysView.vue'),
@@ -71,6 +81,16 @@ const router = createRouter({
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/settings/SettingsView.vue'),
+        },
+        {
+          path: 'users',
+          name: 'users',
+          component: () => import('@/views/users/UsersView.vue'),
+        },
+        {
+          path: 'oauth-settings',
+          name: 'oauth-settings',
+          component: () => import('@/views/settings/OAuthSettingsView.vue'),
         },
       ],
     },

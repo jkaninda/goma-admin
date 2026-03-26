@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/repository"
+	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
@@ -17,13 +19,17 @@ type InstanceConfigService struct {
 	instanceRepo   *repository.InstanceRepository
 	routeRepo      *repository.RouteRepository
 	middlewareRepo *repository.MiddlewareRepository
+	writer         *ProviderWriter
+	eventBus       *EventBus
 }
 
-func NewInstanceConfigService(db *gorm.DB) *InstanceConfigService {
+func NewInstanceConfigService(db *gorm.DB, writer *ProviderWriter, eventBus *EventBus) *InstanceConfigService {
 	return &InstanceConfigService{
 		instanceRepo:   repository.NewInstanceRepository(db),
 		routeRepo:      repository.NewRouteRepository(db),
 		middlewareRepo: repository.NewMiddlewareRepository(db),
+		writer:         writer,
+		eventBus:       eventBus,
 	}
 }
 
@@ -189,6 +195,14 @@ func (s *InstanceConfigService) Import(c *okapi.Context) error {
 		}
 	}
 
+	s.writeInstanceConfig(ctx, id)
+	if s.eventBus != nil {
+		s.eventBus.Broadcast(ConfigEvent{
+			Type: "config_imported", Resource: "instance",
+			InstanceID: id,
+			Message:    fmt.Sprintf("Config imported: %d created, %d updated", result.Created, result.Updated),
+		})
+	}
 	return c.OK(result)
 }
 
@@ -276,7 +290,26 @@ func (s *InstanceConfigService) CopyTo(c *okapi.Context) error {
 		}
 	}
 
+	s.writeInstanceConfig(ctx, targetID)
+	if s.eventBus != nil {
+		s.eventBus.Broadcast(ConfigEvent{
+			Type: "config_copied", Resource: "instance",
+			InstanceID: targetID,
+			Message:    fmt.Sprintf("Config copied: %d created, %d updated", result.Created, result.Updated),
+		})
+	}
 	return c.OK(result)
+}
+
+func (s *InstanceConfigService) writeInstanceConfig(_ context.Context, instanceID uint) {
+	if s.writer == nil {
+		return
+	}
+	go func() {
+		if err := s.writer.WriteInstance(context.Background(), instanceID); err != nil {
+			logger.Error("Failed to write provider config", "instanceID", instanceID, "error", err)
+		}
+	}()
 }
 
 func parseIDParam(c *okapi.Context) (uint, error) {

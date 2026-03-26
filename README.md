@@ -35,6 +35,8 @@ Goma Admin provides a centralized control plane for managing multiple Goma Gatew
 
 
 ## Architecture
+
+
 ```mermaid
 graph LR
     subgraph Control Plane
@@ -42,6 +44,7 @@ graph LR
         API[Dashboard API<br/>Go + Okapi]
         DB[(Config Store &<br/>Audit Logs)]
         Git[(Optional<br/>Git Provider)]
+        DP[Docker Provider<br/>Auto-Discovery]
     end
 
     subgraph Data Plane
@@ -50,10 +53,21 @@ graph LR
         GW3[Goma Gateway<br/>Development]
     end
 
+    subgraph Docker Host
+        DC1[Container A]
+        DC2[Container B]
+        DC3[Container N]
+    end
+
     UI --> API
     API --> DB
     API <--> Git
     DB -->|config versions| API
+
+    DP -->|discover labels| DC1
+    DP -->|discover labels| DC2
+    DP -->|discover labels| DC3
+    DP -->|register routes| API
 
     GW1 -->|pull config| API
     GW2 -->|pull config| API
@@ -66,9 +80,13 @@ graph LR
     style UI fill:#4CAF50
     style API fill:#2196F3
     style DB fill:#FF9800
+    style DP fill:#00BCD4
     style GW1 fill:#9C27B0
     style GW2 fill:#9C27B0
     style GW3 fill:#9C27B0
+    style DC1 fill:#607D8B
+    style DC2 fill:#607D8B
+    style DC3 fill:#607D8B
 ```
 
 ### Components
@@ -77,6 +95,7 @@ graph LR
 - **Web Dashboard**: Vue3 based UI for configuration and monitoring
 - **Dashboard API**: Go backend built with Okapi framework
 - **Config Store**: Persistent storage for configurations and audit logs
+- **Docker Provider**: Polls the Docker daemon and auto-registers routes from container `goma.*` labels
 
 **Data Plane:**
 - **Goma Gateway Instances**: Multiple gateway instances pulling configuration from the control plane
@@ -111,15 +130,38 @@ Run Goma Admin with Docker Compose:
 ```bash
 cd examples
 cp .env.example .env
-# Edit .env with your production values
+# Edit .env with your production values (at minimum, change GOMA_JWT_SECRET)
 docker compose up -d
 ```
 
-This starts Goma Admin with PostgreSQL. Access the dashboard at `http://localhost:9000`.
+This starts three services:
+
+| Service | Description | Port |
+|---|---|---|
+| **goma-gateway** | API Gateway (data plane) | `80` / `443` |
+| **goma-admin** | Control Plane dashboard | `9000` |
+| **goma-postgres** | PostgreSQL database | — |
+
+Goma Admin and the gateway share a `providers` volume — configuration files written by the control plane are immediately available to the gateway.
+
+Access the dashboard at `http://localhost:9000` and log in with the admin credentials from your `.env` file.
 
 See the full [Docker deployment example](https://github.com/jkaninda/goma-admin/tree/main/examples) for details.
 
+### Enabling the Docker Provider
+
+To auto-discover routes from Docker container labels, uncomment the Docker socket mount in `compose.yml` and set `GOMA_DOCKER_ENABLED=true` in your `.env`:
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+Then add `goma.*` labels to your application containers. See the example compose file for the full label reference.
+
 ## Configuration
+
+### Database
 
 | Variable | Description | Default |
 |---|---|---|
@@ -130,16 +172,45 @@ See the full [Docker deployment example](https://github.com/jkaninda/goma-admin/
 | `GOMA_DB_PORT` | Database port | `5432` |
 | `GOMA_DB_SSL_MODE` | SSL mode (`disable`, `require`) | `disable` |
 | `GOMA_DB_URL` | Full database URL (overrides individual DB vars) | — |
+
+### Server
+
+| Variable | Description | Default |
+|---|---|---|
 | `GOMA_PORT` | HTTP server port | `9000` |
 | `GOMA_ENVIRONMENT` | Environment (`development`, `production`) | `development` |
 | `GOMA_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-| `GOMA_JWT_SECRET` | JWT signing secret | `default-secret-key` |
+| `GOMA_ENABLE_DOCS` | Enable OpenAPI documentation | `true` |
+| `GOMA_WEB_DIR` | Frontend assets directory | `web/dist` |
+| `GOMA_PROVIDERS_DIR` | Directory for instance config output | `/etc/goma/providers` |
+| `GOMA_BASE_URL` | Base URL for OAuth callbacks | `http://localhost:9000` |
+
+### Security
+
+| Variable | Description | Default |
+|---|---|---|
+| `GOMA_JWT_SECRET` | JWT signing secret (**change in production**) | `default-secret-key` |
 | `GOMA_JWT_ISSUER` | JWT issuer claim | `goma-admin` |
 | `GOMA_CORS_ALLOWED_ORIGINS` | CORS origins (comma-separated) | `*` |
 | `GOMA_ADMIN_EMAIL` | Default admin email | `admin@example.com` |
 | `GOMA_ADMIN_PASSWORD` | Default admin password | `Admin@1234` |
-| `GOMA_ENABLE_DOCS` | Enable OpenAPI documentation | `true` |
-| `GOMA_WEB_DIR` | Frontend assets directory | `web/dist` |
+
+### Health Checker
+
+| Variable | Description | Default |
+|---|---|---|
+| `GOMA_HEALTH_CHECK_ENABLED` | Enable background health polling | `true` |
+| `GOMA_HEALTH_CHECK_INTERVAL` | Polling interval | `30s` |
+| `GOMA_HEALTH_CHECK_TIMEOUT` | Health check timeout | `5s` |
+
+### Docker Provider
+
+| Variable | Description | Default |
+|---|---|---|
+| `GOMA_DOCKER_ENABLED` | Enable Docker provider | `false` |
+| `GOMA_DOCKER_HOST` | Docker daemon socket | `unix:///var/run/docker.sock` |
+| `GOMA_DOCKER_POLL_INTERVAL` | Container poll interval | `10s` |
+| `GOMA_DOCKER_ENABLE_SWARM` | Enable Docker Swarm service discovery | `false` |
 
 ## Goma Gateway Configuration
 
@@ -198,7 +269,6 @@ Contributions are welcome! This project is in active development and needs help 
 - Bug fixes
 - New features
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## Related Projects
 
@@ -219,4 +289,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by [Jonas Kaninda](https://github.com/jkaninda)**
+## © Copyright
+
+© 2026  **Jonas Kaninda**

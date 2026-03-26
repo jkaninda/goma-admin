@@ -17,18 +17,14 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref('')
 
   const isAuthenticated = computed(() => !!token.value)
+  const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'superadmin')
 
   async function login(data: LoginRequest) {
     loading.value = true
     error.value = ''
     try {
       const res = await authApi.login(data)
-      console.log('[auth] login response:', JSON.stringify(res.data))
-      token.value = res.data.access_token
-      user.value = res.data.user
-      localStorage.setItem('access_token', res.data.access_token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
-      console.log('[auth] token saved:', localStorage.getItem('access_token')?.substring(0, 20) + '...')
+      setSession(res.data.access_token, res.data.user)
       router.push('/')
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } }
@@ -39,6 +35,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function loginWithOAuth(accessToken: string, userData: User) {
+    setSession(accessToken, userData)
+    router.push('/')
+  }
+
+  function setSession(accessToken: string, userData: User) {
+    token.value = accessToken
+    user.value = userData
+    localStorage.setItem('access_token', accessToken)
+    localStorage.setItem('user', JSON.stringify(userData))
+  }
+
   function logout() {
     token.value = ''
     user.value = null
@@ -47,5 +55,5 @@ export const useAuthStore = defineStore('auth', () => {
     router.push('/auth/login')
   }
 
-  return { token, user, loading, error, isAuthenticated, login, logout }
+  return { token, user, loading, error, isAuthenticated, isAdmin, login, loginWithOAuth, logout }
 })

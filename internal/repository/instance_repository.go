@@ -56,18 +56,20 @@ func (r *InstanceRepository) List(ctx context.Context) ([]models.Instance, error
 
 func (r *InstanceRepository) Update(ctx context.Context, instance *models.Instance) error {
 	return r.db.WithContext(ctx).Model(instance).Updates(map[string]interface{}{
-		"name":             instance.Name,
-		"environment":      instance.Environment,
-		"description":      instance.Description,
-		"endpoint":         instance.Endpoint,
-		"metrics_endpoint": instance.MetricsEndpoint,
-		"health_endpoint":  instance.HealthEndpoint,
-		"version":          instance.Version,
-		"region":           instance.Region,
-		"tags":             instance.Tags,
-		"status":           instance.Status,
-		"enabled":          instance.Enabled,
-		"metadata":         instance.Metadata,
+		"name":                  instance.Name,
+		"environment":           instance.Environment,
+		"description":           instance.Description,
+		"endpoint":              instance.Endpoint,
+		"metrics_endpoint":      instance.MetricsEndpoint,
+		"health_endpoint":       instance.HealthEndpoint,
+		"version":               instance.Version,
+		"region":                instance.Region,
+		"tags":                  instance.Tags,
+		"status":                instance.Status,
+		"enabled":               instance.Enabled,
+		"metadata":              instance.Metadata,
+		"write_config":          instance.WriteConfig,
+		"include_docker_routes": instance.IncludeDockerRoutes,
 	}).Error
 }
 
@@ -102,6 +104,14 @@ func (r *InstanceRepository) GetHealthyInstances(ctx context.Context) ([]models.
 	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
 	err := r.db.WithContext(ctx).
 		Where("enabled = ? AND status = ? AND last_seen >= ?", true, "active", fiveMinutesAgo).
+		Order("name ASC").Find(&instances).Error
+	return instances, err
+}
+
+func (r *InstanceRepository) ListWithDockerRoutes(ctx context.Context) ([]models.Instance, error) {
+	var instances []models.Instance
+	err := r.db.WithContext(ctx).
+		Where("include_docker_routes = ? AND write_config = ?", true, true).
 		Order("name ASC").Find(&instances).Error
 	return instances, err
 }
