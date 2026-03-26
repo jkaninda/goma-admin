@@ -60,7 +60,7 @@ func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config, docke
 	commonService = services.NewCommonService(conf.Database.DB)
 	routeService = services.NewRouteService(conf.Database.DB, writer, eventBus, auditService)
 	middlewareService = services.NewMiddlewareService(conf.Database.DB, writer, eventBus, auditService)
-	importService = services.NewImportService(conf.Database.DB)
+	importService = services.NewImportService(conf.Database.DB, writer)
 	instanceConfigService = services.NewInstanceConfigService(conf.Database.DB, writer, eventBus)
 	providerService = services.NewProviderService(conf.Database.DB)
 	apiKeyService = services.NewAPIKeyService(conf.Database.DB)
