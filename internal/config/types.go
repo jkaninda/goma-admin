@@ -25,6 +25,7 @@ type DatabaseConfig struct {
 	dbURL      string
 }
 type AuthConfig struct {
+	AdminEmail    string
 	AdminPassword string
 }
 

@@ -42,6 +42,9 @@ func main() {
 			if err := seed.CreateDefaultInstance(conf.Database.DB); err != nil {
 				logger.Fatal("failed to create default instance", "error", err)
 			}
+			if err := seed.CreateAdminUser(conf.Database.DB, conf.Auth); err != nil {
+				logger.Fatal("failed to create admin user", "error", err)
+			}
 		},
 		OnStarted: func() {
 			logger.Info("Server started successfully", "version", config.Version, "port", conf.Server.Port)

@@ -40,7 +40,8 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 			Issuer: goutils.Env("GOMA_JWT_ISSUER", "goma-admin"),
 		},
 		Auth: AuthConfig{
-			AdminPassword: goutils.Env("GOMA_ADMIN_PASSWORD", "admin"),
+			AdminEmail:    goutils.Env("GOMA_ADMIN_EMAIL", "admin@example.com"),
+			AdminPassword: goutils.Env("GOMA_ADMIN_PASSWORD", "Admin@1234"),
 		},
 		Log: LogConfig{
 			Level: goutils.Env("GOMA_LOG_LEVEL", "info"),
