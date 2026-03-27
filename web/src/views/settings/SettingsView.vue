@@ -351,7 +351,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  padding-bottom: 8px;
+  justify-self: center;
+  align-self: center;
 }
 
 .import-result {
