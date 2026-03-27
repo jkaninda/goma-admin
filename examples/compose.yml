@@ -1,22 +1,26 @@
 # =============================================================================
-# Goma Admin - Docker Compose Deployment Example
+# Goma Admin - Docker Compose Example
 # =============================================================================
 # Usage:
-#   cp .env.example .env   # then edit .env with your production values
+#   cp .env.example .env   # then edit .env with your values
 #   docker compose up -d
 #
-# This starts three core services:
-#   - goma-gateway   : API Gateway (ports 80/443)
-#   - goma-admin     : Control Plane dashboard (port 9000)
+# Services:
+#   - goma-gateway   : API Gateway / data plane      (ports 80/443)
+#   - goma-admin     : Control Plane dashboard + API  (port 9000)
 #   - goma-postgres  : PostgreSQL database
 #
 # The gateway and admin share a "providers" volume so that configuration
-# files written by Goma Admin are immediately available to the gateway.
+# files written by Goma Admin are immediately visible to the gateway.
 # =============================================================================
 
 services:
   # ---------------------------------------------------------------------------
-  # Goma Gateway - API Gateway / Data Plane
+  # Goma Gateway - Data Plane
+  # ---------------------------------------------------------------------------
+  # The gateway reads its configuration from YAML files written by Goma Admin
+  # into the shared "providers" volume. The file provider watches the directory
+  # and hot-reloads on every change — no restart required.
   # ---------------------------------------------------------------------------
   goma-gateway:
     image: jkaninda/goma-gateway:latest
@@ -27,16 +31,14 @@ services:
       - "443:443"
     environment:
       GOMA_LOG_LEVEL: info
-      # "default" is the default instance created by Goma Admin on first start
-      GOMA_EXTRA_CONFIG_DIR: /etc/goma/providers/default
-      GOMA_EXTRA_CONFIG_WATCH: true
       GOMA_ENTRYPOINT_WEB_ADDRESS: :80
       GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
     volumes:
       - providers:/etc/goma/providers
+      - ./goma.yml:/etc/goma/goma.yml:ro
 
   # ---------------------------------------------------------------------------
-  # Goma Admin - Control Plane / Dashboard
+  # Goma Admin - Control Plane
   # ---------------------------------------------------------------------------
   goma-admin:
     image: jkaninda/goma-admin:latest
@@ -74,26 +76,26 @@ services:
       retries: 5
 
   # ---------------------------------------------------------------------------
-  # Example: Backend service with Docker labels (optional)
+  # Example: Application with Docker auto-discovery (optional)
   # ---------------------------------------------------------------------------
-  # When the Docker provider is enabled (GOMA_DOCKER_ENABLED=true), Goma Admin
-  # auto-discovers services by their "goma.*" labels and registers routes.
+  # When GOMA_DOCKER_ENABLED=true and the Docker socket is mounted, Goma Admin
+  # discovers containers by their "goma.*" labels and registers routes
+  # automatically. Uncomment the service below to try it out.
   #
   # api-service:
   #   image: jkaninda/okapi-example
+  #   container_name: api-service
   #   labels:
   #     - "goma.enable=true"
   #     - "goma.name=api-example"
   #     - "goma.path=/"
   #     - "goma.port=8080"
-  #     - "goma.scheme=http"
   #     - "goma.rewrite=/"
   #     - "goma.hosts=api.example.com"
   #     - "goma.methods=GET,POST,PUT,DELETE,PATCH"
-  #     - "goma.healthCheck.path=/"
-  #     - "goma.healthCheck.interval=30s"
-  #     - "goma.healthCheck.timeout=5s"
-  #     - "goma.middlewares=basic-auth,rate-limit,cors"
+  #     - "goma.health_check.path=/"
+  #     - "goma.health_check.interval=30s"
+  #     - "goma.health_check.timeout=5s"
 
 volumes:
   postgres_data: {}

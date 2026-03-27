@@ -162,6 +162,81 @@
         </div>
       </div>
 
+      <!-- Gateway Metrics -->
+      <div v-if="metricsInstance" class="card gateway-metrics-card">
+        <div class="card-header">
+          <div class="docker-header-left">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h2>Gateway Metrics</h2>
+          </div>
+          <div class="docker-header-right">
+            <span class="instance-meta">{{ metricsInstance.name }}</span>
+            <button class="btn btn-secondary btn-sm" :disabled="metricsLoading" @click="fetchDashboardMetrics">
+              {{ metricsLoading ? 'Loading...' : 'Refresh' }}
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div v-if="metricsLoading && !dashboardMetrics" class="empty-state" style="padding: 24px; text-align: center;">
+            <div class="spinner" style="width: 24px; height: 24px; margin: 0 auto;"></div>
+          </div>
+          <div v-else-if="metricsError" class="empty-state" style="padding: 24px; text-align: center;">
+            <p style="color: var(--text-muted); font-size: 13px;">{{ metricsError }}</p>
+          </div>
+          <div v-else-if="dashboardMetrics">
+            <div class="gw-metrics-summary">
+              <div class="gw-metric-stat">
+                <span class="gw-metric-value">{{ formatMetricNumber(dashboardMetrics.totalRequests) }}</span>
+                <span class="gw-metric-label">Total Requests</span>
+              </div>
+              <div class="gw-metric-stat">
+                <span class="gw-metric-value" :class="{ 'gw-metric-danger': dashboardMetrics.errorRate > 5 }">{{ dashboardMetrics.errorRate }}%</span>
+                <span class="gw-metric-label">Error Rate</span>
+              </div>
+              <div class="gw-metric-stat">
+                <span class="gw-metric-value">{{ dashboardMetrics.avgLatencyMs }}ms</span>
+                <span class="gw-metric-label">Avg Latency</span>
+              </div>
+              <div class="gw-metric-stat">
+                <span class="gw-metric-value">{{ dashboardMetrics.realtimeVisitors }}</span>
+                <span class="gw-metric-label">Active Visitors</span>
+              </div>
+              <div class="gw-metric-stat">
+                <span class="gw-metric-value">{{ dashboardMetrics.routesCount }}</span>
+                <span class="gw-metric-label">Routes</span>
+              </div>
+              <div class="gw-metric-stat">
+                <span class="gw-metric-value">{{ formatMetricUptime(dashboardMetrics.uptimeSeconds) }}</span>
+                <span class="gw-metric-label">Uptime</span>
+              </div>
+            </div>
+            <div v-if="dashboardMetrics.routeMetrics?.length" class="gw-route-table-wrap">
+              <div class="gw-route-table-header">Top Routes</div>
+              <table class="gw-route-table">
+                <thead>
+                  <tr>
+                    <th>Route</th>
+                    <th class="text-right">Requests</th>
+                    <th class="text-right">Error Rate</th>
+                    <th class="text-right">Avg Latency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="rm in dashboardMetrics.routeMetrics.slice(0, 10)" :key="rm.routeName">
+                    <td class="text-mono">{{ rm.routeName }}</td>
+                    <td class="text-right">{{ formatMetricNumber(rm.totalRequests) }}</td>
+                    <td class="text-right" :class="{ 'gw-metric-danger': rm.errorRate > 5 }">{{ rm.errorRate }}%</td>
+                    <td class="text-right">{{ rm.avgLatencyMs }}ms</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick actions -->
       <div class="card quick-actions-card">
         <div class="card-header">
@@ -214,6 +289,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { dashboardApi, type DashboardStats } from '@/api/dashboard'
 import { dockerApi, type DockerStatus, type DockerEvent } from '@/api/docker'
 import { instancesApi, type Instance } from '@/api/instances'
+import { metricsApi, type InstanceMetrics } from '@/api/metrics'
 import { connectConfigSSE, type ConfigEvent } from '@/api/events'
 import { useInstanceStore } from '@/stores/instance'
 
@@ -231,6 +307,10 @@ const configEvents = ref<ConfigEvent[]>([])
 const configSseConnected = ref(false)
 let eventSource: EventSource | null = null
 let configEventSource: EventSource | null = null
+const dashboardMetrics = ref<InstanceMetrics | null>(null)
+const metricsLoading = ref(false)
+const metricsError = ref('')
+const metricsInstance = ref<Instance | null>(null)
 
 function envBadge(env: string): string {
   const map: Record<string, string> = {
@@ -259,6 +339,34 @@ function formatLastSync(lastSync: string): string {
 function formatEventTime(ts: string): string {
   if (!ts) return ''
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+function formatMetricNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+
+function formatMetricUptime(seconds: number): string {
+  if (seconds < 60) return Math.floor(seconds) + 's'
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm'
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h'
+  return Math.floor(seconds / 86400) + 'd'
+}
+
+async function fetchDashboardMetrics() {
+  if (!metricsInstance.value) return
+  metricsLoading.value = true
+  metricsError.value = ''
+  try {
+    const res = await metricsApi.getMetrics(metricsInstance.value.id)
+    dashboardMetrics.value = res.data
+  } catch (err: any) {
+    metricsError.value = err.response?.data?.message || 'Failed to fetch metrics'
+    dashboardMetrics.value = null
+  } finally {
+    metricsLoading.value = false
+  }
 }
 
 function connectSSE() {
@@ -341,6 +449,17 @@ async function fetchStats() {
 
     // Connect config SSE for live activity feed
     connectConfigEvents()
+
+    // Pick the first active non-built-in instance for metrics
+    // If a specific instance is selected, use that
+    const candidateId = instanceStore.currentInstanceId
+    const candidate = candidateId
+      ? instances.value.find(i => i.id === candidateId && !i.builtIn && i.enableMetrics)
+      : instances.value.find(i => !i.builtIn && i.enableMetrics)
+    if (candidate) {
+      metricsInstance.value = candidate
+      fetchDashboardMetrics()
+    }
 
     // Fetch Docker status if any built-in instance exists
     try {
@@ -654,5 +773,95 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 1px;
+}
+
+/* ─── Gateway Metrics ─── */
+.gateway-metrics-card {
+  margin-bottom: 18px;
+}
+
+.gw-metrics-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.gw-metric-stat {
+  text-align: center;
+  padding: 12px 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+}
+
+.gw-metric-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.gw-metric-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+.gw-metric-danger {
+  color: var(--color-danger, #ef4444);
+}
+
+.gw-route-table-wrap {
+  overflow-x: auto;
+}
+
+.gw-route-table-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.gw-route-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.gw-route-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.gw-route-table td {
+  padding: 8px 12px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.gw-route-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.gw-route-table .text-right {
+  text-align: right;
+}
+
+.gw-route-table .text-mono {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
 }
 </style>

@@ -85,6 +85,12 @@
             </svg>
             <span class="nav-label">API Keys</span>
           </router-link>
+          <router-link to="/repositories" class="nav-item" :class="{ active: $route.path.startsWith('/repositories') }">
+            <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+            </svg>
+            <span class="nav-label">Repositories</span>
+          </router-link>
           <router-link to="/profile" class="nav-item" :class="{ active: $route.path === '/profile' }">
             <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
@@ -134,7 +140,7 @@
           </a>
         </div>
         <div class="sidebar-version">
-          <span class="nav-label">v1.0.0</span>
+          <span class="nav-label">{{ appVersion ? `v${appVersion}` : '' }}{{ commitId ? ` (${commitId.slice(0, 7)})` : '' }}</span>
         </div>
       </div>
     </aside>
@@ -219,9 +225,10 @@
       <!-- Footer -->
       <footer class="main-footer">
         <span>&copy; {{ new Date().getFullYear() }}
-          <a href="https://github.com/jkaninda" target="_blank" rel="noopener noreferrer">Jonas Kaninda</a>.
+          <a href="https://jkaninda.dev" target="_blank" rel="noopener noreferrer">Jonas Kaninda</a>.
         </span>
-        <a href="https://jkaninda.dev" target="_blank" rel="noopener noreferrer" class="footer-github">
+        <span v-if="appVersion" class="footer-version">v{{ appVersion }}{{ commitId ? ` (${commitId.slice(0, 7)})` : '' }}</span>
+        <a href="https://github.com/jkaninda/goma-admin" target="_blank" rel="noopener noreferrer" class="footer-github">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
           </svg>
@@ -361,6 +368,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useInstanceStore } from '@/stores/instance'
+import axios from 'axios'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -372,6 +380,8 @@ const mobileOpen = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const instanceDropdownOpen = ref(false)
+const appVersion = ref('')
+const commitId = ref('')
 
 // Theme state
 const currentTheme = ref(localStorage.getItem('goma_theme') || 'system')
@@ -443,6 +453,10 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', handleSystemThemeChange)
   instanceStore.fetchInstances()
+  axios.get('/info').then(res => {
+    appVersion.value = res.data?.version || ''
+    commitId.value = res.data?.commit_id || ''
+  }).catch(() => {})
 })
 
 onUnmounted(() => {
@@ -914,6 +928,11 @@ onUnmounted(() => {
 
 .main-footer a:hover {
   color: var(--primary-700);
+}
+
+.footer-version {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .footer-github {

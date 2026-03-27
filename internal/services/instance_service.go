@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jkaninda/goma-admin/internal/crypto"
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/repository"
@@ -37,12 +38,22 @@ func (s InstanceService) Create(c *okapi.Context, input *dto.CreateInstanceRq) e
 		Environment:     input.Body.Environment,
 		Description:     input.Body.Description,
 		Endpoint:        input.Body.Endpoint,
-		MetricsEndpoint: input.Body.MetricsEndpoint,
-		HealthEndpoint:  input.Body.HealthEndpoint,
+		MetricsEndpoint:  input.Body.MetricsEndpoint,
+		MetricsAuthType:  input.Body.MetricsAuthType,
+		MetricsAuthValue: encryptSecret(input.Body.MetricsAuthValue),
+		HealthEndpoint:   input.Body.HealthEndpoint,
 		Version:         input.Body.Version,
 		Region:          input.Body.Region,
 		Tags:            input.Body.Tags,
+		RepositoryID:    input.Body.RepositoryID,
+		RepositoryPath:  input.Body.RepositoryPath,
 		WriteConfig:     true,
+	}
+	if input.Body.EnableMetrics != nil {
+		instance.EnableMetrics = *input.Body.EnableMetrics
+	}
+	if input.Body.AutoSync != nil {
+		instance.AutoSync = *input.Body.AutoSync
 	}
 	if input.Body.WriteConfig != nil {
 		instance.WriteConfig = *input.Body.WriteConfig
@@ -89,10 +100,24 @@ func (s InstanceService) Update(c *okapi.Context, input *dto.UpdateInstanceRq) e
 	existing.Description = input.Body.Description
 	existing.Endpoint = input.Body.Endpoint
 	existing.MetricsEndpoint = input.Body.MetricsEndpoint
+	existing.MetricsAuthType = input.Body.MetricsAuthType
+	if input.Body.MetricsAuthType == "" {
+		existing.MetricsAuthValue = ""
+	} else if input.Body.MetricsAuthValue != "" {
+		existing.MetricsAuthValue = encryptSecret(input.Body.MetricsAuthValue)
+	}
 	existing.HealthEndpoint = input.Body.HealthEndpoint
 	existing.Version = input.Body.Version
 	existing.Region = input.Body.Region
 	existing.Tags = input.Body.Tags
+	existing.RepositoryID = input.Body.RepositoryID
+	existing.RepositoryPath = input.Body.RepositoryPath
+	if input.Body.EnableMetrics != nil {
+		existing.EnableMetrics = *input.Body.EnableMetrics
+	}
+	if input.Body.AutoSync != nil {
+		existing.AutoSync = *input.Body.AutoSync
+	}
 	if input.Body.WriteConfig != nil {
 		existing.WriteConfig = *input.Body.WriteConfig
 	}
@@ -199,4 +224,18 @@ func (s InstanceService) GetHealthy(c *okapi.Context) error {
 		return c.AbortInternalServerError("Internal Server Error", err)
 	}
 	return c.OK(instances)
+}
+
+// encryptSecret encrypts a plaintext secret for storage.
+// Returns the original value if empty or if encryption fails (logged).
+func encryptSecret(plaintext string) string {
+	if plaintext == "" {
+		return ""
+	}
+	encrypted, err := crypto.Encrypt(plaintext)
+	if err != nil {
+		logger.Error("Failed to encrypt secret", "error", err)
+		return plaintext
+	}
+	return encrypted
 }

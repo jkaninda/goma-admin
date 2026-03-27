@@ -17,20 +17,28 @@ import (
 
 type InstanceConfigService struct {
 	instanceRepo   *repository.InstanceRepository
+	repoRepo       *repository.RepositoryRepository
 	routeRepo      *repository.RouteRepository
 	middlewareRepo *repository.MiddlewareRepository
 	writer         *ProviderWriter
+	git            *GitService
 	eventBus       *EventBus
 }
 
 func NewInstanceConfigService(db *gorm.DB, writer *ProviderWriter, eventBus *EventBus) *InstanceConfigService {
 	return &InstanceConfigService{
 		instanceRepo:   repository.NewInstanceRepository(db),
+		repoRepo:       repository.NewRepositoryRepository(db),
 		routeRepo:      repository.NewRouteRepository(db),
 		middlewareRepo: repository.NewMiddlewareRepository(db),
 		writer:         writer,
 		eventBus:       eventBus,
 	}
+}
+
+// SetGitService sets the git service for repository sync operations.
+func (s *InstanceConfigService) SetGitService(git *GitService) {
+	s.git = git
 }
 
 // instanceConfigFile is the YAML format for full instance config export/import.
@@ -310,6 +318,157 @@ func (s *InstanceConfigService) writeInstanceConfig(_ context.Context, instanceI
 			logger.Error("Failed to write provider config", "instanceID", instanceID, "error", err)
 		}
 	}()
+}
+
+// SyncFromRepo pulls the latest from the linked git repository and imports configs.
+func (s *InstanceConfigService) SyncFromRepo(c *okapi.Context) error {
+	id, err := parseIDParam(c)
+	if err != nil {
+		return c.AbortBadRequest("Invalid instance ID", err)
+	}
+
+	ctx := c.Request().Context()
+
+	instance, err := s.instanceRepo.GetByID(ctx, id)
+	if err != nil {
+		return c.AbortNotFound("Instance not found", err)
+	}
+
+	if instance.RepositoryID == nil {
+		return c.AbortBadRequest("Instance has no repository linked", nil)
+	}
+
+	if s.git == nil {
+		return c.AbortInternalServerError("Git service not configured", nil)
+	}
+
+	repo, err := s.repoRepo.GetByID(ctx, *instance.RepositoryID)
+	if err != nil {
+		return c.AbortNotFound("Repository not found", err)
+	}
+
+	// Pull latest
+	var commit string
+	if s.git.Exists(repo.ID) {
+		commit, err = s.git.Pull(repo.ID, repo.Branch, repo.AuthType, repo.AuthValue)
+	} else {
+		commit, err = s.git.Clone(repo.ID, repo.URL, repo.Branch, repo.AuthType, repo.AuthValue)
+	}
+	if err != nil {
+		_ = s.repoRepo.UpdateSyncStatus(ctx, repo.ID, "error", err.Error(), "")
+		return c.AbortInternalServerError("Failed to sync repository", err)
+	}
+	_ = s.repoRepo.UpdateSyncStatus(ctx, repo.ID, "synced", "", commit)
+
+	// Read YAML files from the configured path
+	yamlFiles, err := s.git.ReadYAMLFiles(repo.ID, instance.RepositoryPath)
+	if err != nil {
+		return c.AbortBadRequest("Failed to read config files from repository", err)
+	}
+
+	if len(yamlFiles) == 0 {
+		return c.OK(dto.ImportResult{Errors: []string{"no YAML files found at path: " + instance.RepositoryPath}})
+	}
+
+	// Parse and merge all YAML files
+	result := dto.ImportResult{}
+	for _, data := range yamlFiles {
+		partial := s.importYAMLBytes(ctx, id, data)
+		result.Created += partial.Created
+		result.Updated += partial.Updated
+		result.Errors = append(result.Errors, partial.Errors...)
+	}
+
+	s.writeInstanceConfig(ctx, id)
+	if s.eventBus != nil {
+		s.eventBus.Broadcast(ConfigEvent{
+			Type: "config_synced_from_repo", Resource: "instance",
+			InstanceID: id,
+			Message:    fmt.Sprintf("Synced from repo (commit %s): %d created, %d updated", commit, result.Created, result.Updated),
+		})
+	}
+	return c.OK(result)
+}
+
+// importYAMLBytes parses a YAML config file and upserts routes/middlewares for an instance.
+func (s *InstanceConfigService) importYAMLBytes(ctx context.Context, instanceID uint, data []byte) dto.ImportResult {
+	result := dto.ImportResult{}
+
+	var file instanceConfigFile
+	if err := yaml.Unmarshal(data, &file); err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("invalid YAML: %v", err))
+		return result
+	}
+
+	for i, raw := range file.Routes {
+		name, _ := raw["name"].(string)
+		if name == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("route[%d]: missing 'name'", i))
+			continue
+		}
+		config := make(models.JSONB, len(raw)-1)
+		for k, v := range raw {
+			if k == "name" {
+				continue
+			}
+			config[k] = v
+		}
+		existing, err := s.routeRepo.FindByNameAndInstance(ctx, name, instanceID)
+		if err == nil && existing != nil {
+			existing.Config = config
+			if err := s.routeRepo.Update(ctx, existing); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("route '%s': update failed: %v", name, err))
+				continue
+			}
+			result.Updated++
+		} else {
+			route := &models.Route{InstanceID: instanceID, Name: name, Config: config}
+			if err := s.routeRepo.Create(ctx, route); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("route '%s': create failed: %v", name, err))
+				continue
+			}
+			result.Created++
+		}
+	}
+
+	for i, raw := range file.Middlewares {
+		name, _ := raw["name"].(string)
+		if name == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("middleware[%d]: missing 'name'", i))
+			continue
+		}
+		mwType, _ := raw["type"].(string)
+		if mwType == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("middleware '%s': missing 'type'", name))
+			continue
+		}
+		config := make(models.JSONB, len(raw)-2)
+		for k, v := range raw {
+			if k == "name" || k == "type" {
+				continue
+			}
+			config[k] = v
+		}
+		existing, err := s.middlewareRepo.FindByNameAndInstance(ctx, name, instanceID)
+		if err == nil && existing != nil {
+			existing.Type = mwType
+			existing.Config = config
+			if err := s.middlewareRepo.Update(ctx, existing); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("middleware '%s': update failed: %v", name, err))
+				continue
+			}
+			result.Updated++
+		} else {
+			mw := &models.Middleware{InstanceID: instanceID, Name: name, Type: mwType, Config: config}
+			if err := s.middlewareRepo.Create(ctx, mw); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("middleware '%s': create failed: %v", name, err))
+				continue
+			}
+			result.Created++
+		}
+	}
+
+	return result
 }
 
 func parseIDParam(c *okapi.Context) (uint, error) {
