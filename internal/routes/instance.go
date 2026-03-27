@@ -8,6 +8,7 @@ import (
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/repository"
+	"github.com/jkaninda/goma-admin/internal/services"
 	"github.com/jkaninda/okapi"
 )
 
@@ -21,6 +22,12 @@ func (r *Router) instanceRoutes() []okapi.RouteDefinition {
 			Handler: instanceConfigService.Export,
 			Summary: "Export instance config (routes + middlewares) as YAML",
 			Options: []okapi.RouteOption{okapi.DocBearerAuth(), okapi.DocPathParam("id", "integer", "Instance ID")},
+		},
+		{
+			Path: "/:id/sync-repo", Method: http.MethodPost, Group: group,
+			Handler: instanceConfigService.SyncFromRepo,
+			Summary: "Sync routes and middlewares from linked git repository",
+			Options: []okapi.RouteOption{okapi.DocBearerAuth(), okapi.DocPathParam("id", "integer", "Instance ID"), okapi.DocResponse(200, dto.ImportResult{})},
 		},
 		{
 			Path: "/:id/import", Method: http.MethodPost, Group: group,
@@ -120,13 +127,15 @@ func (r *Router) checkInstanceHealth(c *okapi.Context) error {
 		return c.AbortNotFound("Instance not found")
 	}
 
-	if inst.HealthEndpoint == "" {
-		return c.AbortBadRequest("Instance has no health endpoint configured")
+	if inst.Endpoint == "" {
+		return c.AbortBadRequest("Instance has no endpoint configured")
 	}
+
+	healthURL := services.ResolveHealthEndpoint(inst.Endpoint, inst.HealthEndpoint)
 
 	// Perform the health check with a 5s timeout
 	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, inst.HealthEndpoint, nil)
+	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, healthURL, nil)
 	if err != nil {
 		return c.AbortInternalServerError("Failed to create health check request", err)
 	}

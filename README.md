@@ -10,32 +10,40 @@
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-admin?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-admin?style=flat-square)
 
-> **⚠️ Development Status**: This project is currently under active development. Contributions and feedback are welcome!
+> **Warning**: This project is currently under active development. Contributions and feedback are welcome!
 
-## Table of Contents
+## Features
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Getting Started](#getting-started)
-- [Docker Deployment](#docker-deployment)
-- [Configuration](#configuration)
-- [Contributing](#contributing)
-- [Related Projects](#related-projects)
+- **Multi-instance management** — configure routes and middlewares per gateway instance
+- **File provider** — writes YAML config files that the gateway watches and hot-reloads
+- **HTTP provider** — gateways pull config from the Admin API on a schedule
+- **Docker provider** — auto-discovers services from `goma.*` container labels
+- **Import / Export** — load and dump Goma-compatible YAML configs
+- **Provider API** — instance-aware endpoints for gateways to pull config dynamically
+- **API key management** — generate and manage keys for gateway-to-admin authentication
+- **Real-time metrics** — scrapes Prometheus metrics from gateway instances
+- **Health monitoring** — background polling of instance health endpoints
+- **OAuth support** — pluggable OAuth2 providers (Keycloak, Gitea, etc.)
+- **Audit log** — tracks every config change with before/after snapshots
+- **Git sync** — bidirectional sync of instance configurations with Git repositories
+- **Encryption** — encrypt sensitive configuration values at rest
+- **OpenAPI docs** — auto-generated Swagger UI
 
-## Overview
+## Screenshots
 
-Goma Admin provides a centralized control plane for managing multiple Goma Gateway instances across different environments. It implements the [Goma Gateway HTTP Provider specification](https://github.com/jkaninda/goma-http-provider) to dynamically configure routes, middlewares, and monitor gateway health.
+### Dashboard
 
-**Key Benefits:**
-- Centralized configuration management for multiple gateway instances
-- Visual interface for route and middleware configuration
-- Real-time monitoring and analytics
-- Configuration versioning with rollback capabilities
-- Multi-environment support (dev, staging, production)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard.png" alt="Dashboard" width="900"/>
+</p>
 
+### Dashboard (Dark)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
+</p>
 
 ## Architecture
-
 
 ```mermaid
 graph LR
@@ -92,45 +100,22 @@ graph LR
 ### Components
 
 **Control Plane:**
-- **Web Dashboard**: Vue3 based UI for configuration and monitoring
-- **Dashboard API**: Go backend built with Okapi framework
-- **Config Store**: Persistent storage for configurations and audit logs
+- **Web Dashboard**: Vue 3 based UI for configuration and monitoring
+- **Dashboard API**: Go backend built with the Okapi framework
+- **Config Store**: PostgreSQL database for configurations and audit logs
 - **Docker Provider**: Polls the Docker daemon and auto-registers routes from container `goma.*` labels
 
 **Data Plane:**
-- **Goma Gateway Instances**: Multiple gateway instances pulling configuration from the control plane
+- **Goma Gateway Instances**: One or more gateways pulling configuration from the control plane
 
+## Quick Start (Docker Compose)
 
-
-## Getting Started
-
-### Prerequisites
-
-- Go 1.26
-- Node.js 18+ and npm/yarn
-
-
-### Installation
-```bash
-# Clone the repository
-git clone https://github.com/jkaninda/goma-admin.git
-cd goma-admin
-
-# Backend setup
-
-cp .env.example .env
-go run main.go
-
-```
-
-## Docker Deployment
-
-Run Goma Admin with Docker Compose:
+The fastest way to try Goma Admin is with the provided Docker Compose example.
 
 ```bash
 cd examples
 cp .env.example .env
-# Edit .env with your production values (at minimum, change GOMA_JWT_SECRET)
+# Edit .env — at minimum, change GOMA_JWT_SECRET
 docker compose up -d
 ```
 
@@ -139,25 +124,98 @@ This starts three services:
 | Service | Description | Port |
 |---|---|---|
 | **goma-gateway** | API Gateway (data plane) | `80` / `443` |
-| **goma-admin** | Control Plane dashboard | `9000` |
-| **goma-postgres** | PostgreSQL database | — |
+| **goma-admin** | Control Plane dashboard + API | `9000` |
+| **goma-postgres** | PostgreSQL database | internal |
 
-Goma Admin and the gateway share a `providers` volume — configuration files written by the control plane are immediately available to the gateway.
+Open `http://localhost:9000` and log in with the credentials from your `.env` file (default: `admin@example.com` / `Admin@1234`).
 
-Access the dashboard at `http://localhost:9000` and log in with the admin credentials from your `.env` file.
+### How configuration reaches the gateway
 
-See the full [Docker deployment example](https://github.com/jkaninda/goma-admin/tree/main/examples) for details.
+Goma Admin and the gateway share a **providers** volume. When you create or update routes and middlewares in the dashboard, Goma Admin writes a `goma.yaml` file into the instance's subdirectory (e.g. `/etc/goma/providers/default/goma.yaml`). The gateway watches that directory and hot-reloads automatically — no restart required.
 
-### Enabling the Docker Provider
+The example `goma.yml` shipped in the `examples/` directory configures the gateway to use the **file provider**:
 
-To auto-discover routes from Docker container labels, uncomment the Docker socket mount in `compose.yml` and set `GOMA_DOCKER_ENABLED=true` in your `.env`:
+```yaml
+gateway:
+  providers:
+    file:
+      enabled: true
+      directory: /etc/goma/providers/default   # "default" instance
+      watch: true
+```
+
+Alternatively you can use the **HTTP provider**, where the gateway polls the Admin API directly:
+
+```yaml
+gateway:
+  providers:
+    http:
+      enabled: true
+      endpoint: "http://goma-admin:9000/api/v1/provider/{instance_name}"
+      interval: 60s
+      timeout: 10s
+      retryAttempts: 5
+      retryDelay: 3s
+      headers:
+        Authorization: "${INSTANCE_API_KEY}"
+```
+
+### Provider API
+
+Goma Gateways pull their configuration from these endpoints. All responses are instance-scoped — pass the instance name in the URL, or omit it to use the **default** instance.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/provider/{instance_name}` | Full config bundle (routes + middlewares) |
+| `GET` | `/api/v1/provider/routes/{instance_name}` | Routes only |
+| `GET` | `/api/v1/provider/middlewares/{instance_name}` | Middlewares only |
+
+Gateways authenticate using an **API key** passed in the `Authorization` header. You can generate API keys from the dashboard under **API Keys**
+
+
+
+### Enabling the Docker provider
+
+To auto-discover routes from Docker container labels, set `GOMA_DOCKER_ENABLED=true` in your `.env` and make sure the Docker socket is mounted (it is by default in the example compose file):
 
 ```yaml
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock:ro
 ```
 
-Then add `goma.*` labels to your application containers. See the example compose file for the full label reference.
+Then add `goma.*` labels to your application containers — see [Docker Labels Reference](#docker-labels-reference) below.
+
+### Getting started steps
+
+1. Create an **instance** in Goma Admin (a "default" instance is created automatically on first start)
+2. Create or import routes and middlewares
+3. Generate an **API key** (needed only for the HTTP provider)
+4. Configure your gateway with the file or HTTP provider
+5. The gateway starts receiving dynamic configuration
+
+## Local Development
+
+### Prerequisites
+
+- Go 1.26+
+- Node.js 20+ and npm
+- PostgreSQL (or use `make dev` to start one in Docker)
+
+### Setup
+
+```bash
+git clone https://github.com/jkaninda/goma-admin.git
+cd goma-admin
+
+cp .env.example .env          # edit with your local DB credentials
+
+make dev                      # start PostgreSQL in Docker
+make install                  # install frontend dependencies
+make build-ui                 # build Vue 3 frontend
+go run ./cmd                  # start the backend
+```
+
+The dashboard is available at `http://localhost:9000`.
 
 ## Configuration
 
@@ -212,52 +270,151 @@ Then add `goma.*` labels to your application containers. See the example compose
 | `GOMA_DOCKER_POLL_INTERVAL` | Container poll interval | `10s` |
 | `GOMA_DOCKER_ENABLE_SWARM` | Enable Docker Swarm service discovery | `false` |
 
-## Goma Gateway Configuration
+### Git Sync
 
-Configure your Goma Gateway to use the HTTP provider:
+| Variable | Description | Default |
+|---|---|---|
+| `GOMA_REPO_SYNC_ENABLED` | Enable Git repository sync | `true` |
+| `GOMA_REPO_SYNC_INTERVAL` | Sync interval | `2m` |
+
+When enabled, Goma Admin periodically syncs instance configurations to and from linked Git repositories. Configure repositories from the dashboard under **Repositories**.
+
+### Encryption
+
+| Variable | Description | Default |
+|---|---|---|
+| `GOMA_ENCRYPTION_KEY` | Key used to encrypt sensitive values at rest | Falls back to `GOMA_JWT_SECRET` |
+
+Sensitive configuration values (e.g. OAuth client secrets) are encrypted before being stored in the database. If `GOMA_ENCRYPTION_KEY` is not set, the JWT secret is used as a fallback.
+
+## Docker Labels Reference
+
+### Single-Route Configuration
+
+A container exposing **one route** can use flat `goma.*` labels.
 
 ```yaml
-gateway:
-  providers:
-    http:
-      enabled: true
-      endpoint: "http://goma-admin:9000/api/v1/provider/{instance_name}"
-      interval: 60s
-      timeout: 10s
-      retryAttempts: 5
-      retryDelay: 3s
-      headers:
-        Authorization: "${INSTANCE_API_KEY}"
+services:
+  api-service:
+    image: your-api:latest
+    labels:
+      # Core
+      - "goma.enable=true"
+      - "goma.name=api"
+      - "goma.path=/api"
+      - "goma.port=8000"
+      - "goma.rewrite=/"
+      - "goma.priority=100"
+
+      # Hosts & Methods
+      - "goma.hosts=api.example.com,api.local"
+      - "goma.methods=GET,POST,PUT,DELETE"
+
+      # Health Check
+      - "goma.health_check.path=/health"
+      - "goma.health_check.interval=30s"
+      - "goma.health_check.timeout=5s"
+      - "goma.health_check.healthy_statuses=200,204"
+
+      # Security
+      - "goma.security.forward_host_headers=true"
+      - "goma.security.enable_exploit_protection=true"
+      - "goma.security.tls.insecure_skip_verify=false"
+
+      # Features
+      - "goma.middlewares=jwt-auth,rate-limit"
+      - "goma.disable_metrics=false"
 ```
 
-### Steps
+### Multi-Route Configuration
 
-1. Create an `instance` in Goma Admin
-3. Create/Import routes & middlewares
-3. Generate an `API key`
-4. Configure your gateway with the HTTP provider
-5. Start receiving dynamic configuration
+If a container exposes **multiple ports or paths**, use the `goma.routes.{routeName}.*` pattern.
 
-## Screenshots
+```yaml
+services:
+  multi-service:
+    image: your-service:latest
+    labels:
+      - "goma.enable=true"
 
-### Dashboard
+      # Route: API
+      - "goma.routes.api.path=/api"
+      - "goma.routes.api.port=8000"
+      - "goma.routes.api.methods=GET,POST,PUT,DELETE"
+      - "goma.routes.api.health_check.path=/health"
+      - "goma.routes.api.health_check.interval=30s"
+      - "goma.routes.api.security.forward_host_headers=true"
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard.png" alt="Dashboard" width="900"/>
-</p>
+      # Route: Metrics
+      - "goma.routes.metrics.path=/metrics"
+      - "goma.routes.metrics.port=9090"
+      - "goma.routes.metrics.methods=GET"
+      - "goma.routes.metrics.disable_metrics=true"
 
-### Dashboard (Dark)
+      # Route: Admin
+      - "goma.routes.admin.path=/admin"
+      - "goma.routes.admin.port=8081"
+      - "goma.routes.admin.hosts=admin.example.com"
+      - "goma.routes.admin.security.enable_exploit_protection=true"
+```
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
-</p>
+### Label Reference
 
-### Instances
+#### Core
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/instances.png" alt="Instances" width="900"/>
-</p>
+| Label | Description | Example |
+|---|---|---|
+| `goma.enable` | Enable route discovery | `true` |
+| `goma.name` | Route name | `api` |
+| `goma.path` | Public route path | `/api` |
+| `goma.port` | Container port | `8080` |
+| `goma.scheme` | Target scheme | `http` |
+| `goma.rewrite` | Rewrite path | `/` |
+| `goma.priority` | Route priority | `100` |
+| `goma.enabled` | Enable/disable route | `true` |
 
+#### Hosts & Methods
+
+| Label | Description |
+|---|---|
+| `goma.hosts` | Allowed hostnames (comma-separated) |
+| `goma.methods` | Allowed HTTP methods (comma-separated) |
+
+#### Health Check
+
+| Label | Description |
+|---|---|
+| `goma.health_check.path` | Health endpoint |
+| `goma.health_check.interval` | Check interval |
+| `goma.health_check.timeout` | Timeout |
+| `goma.health_check.healthy_statuses` | Valid HTTP statuses |
+
+#### Security
+
+| Label | Description |
+|---|---|
+| `goma.security.forward_host_headers` | Forward original Host header |
+| `goma.security.enable_exploit_protection` | Enable exploit protection |
+| `goma.security.tls.insecure_skip_verify` | Skip TLS verification |
+
+#### Features
+
+| Label | Description |
+|---|---|
+| `goma.middlewares` | Attached middlewares (comma-separated) |
+| `goma.disable_metrics` | Disable metrics for route |
+
+#### Multi-Route Pattern
+
+| Pattern | Description |
+|---|---|
+| `goma.routes.{name}.path` | Route path |
+| `goma.routes.{name}.port` | Route port |
+| `goma.routes.{name}.scheme` | Route scheme |
+| `goma.routes.{name}.methods` | Allowed methods |
+| `goma.routes.{name}.hosts` | Hosts |
+| `goma.routes.{name}.health_check.*` | Health check |
+| `goma.routes.{name}.security.*` | Security options |
 
 ## Contributing
 
@@ -269,18 +426,15 @@ Contributions are welcome! This project is in active development and needs help 
 - Bug fixes
 - New features
 
-
 ## Related Projects
 
-- **[Goma Gateway](https://github.com/jkaninda/goma-gateway)** - Cloud-native API Gateway
-- **[Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)** - HTTP provider specification
-- **[Okapi](https://github.com/jkaninda/okapi)** - Go web framework
-
-
+- **[Goma Gateway](https://github.com/jkaninda/goma-gateway)** — Cloud-native API Gateway
+- **[Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)** — HTTP provider specification
+- **[Okapi](https://github.com/jkaninda/okapi)** — Go web framework
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
@@ -289,6 +443,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## © Copyright
-
-© 2026  **Jonas Kaninda**
+Copyright 2026 **Jonas Kaninda**

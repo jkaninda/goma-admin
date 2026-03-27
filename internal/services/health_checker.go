@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,10 +68,12 @@ func (hc *HealthChecker) checkAll(ctx context.Context) {
 	sem := make(chan struct{}, 10)
 
 	for _, inst := range instances {
-		// Skip built-in instances, disabled instances, and those without a health endpoint
-		if inst.BuiltIn || !inst.Enabled || inst.HealthEndpoint == "" {
+		// Skip built-in instances, disabled instances, and those without an endpoint
+		if inst.BuiltIn || !inst.Enabled || inst.Endpoint == "" {
 			continue
 		}
+
+		healthURL := ResolveHealthEndpoint(inst.Endpoint, inst.HealthEndpoint)
 
 		wg.Add(1)
 		sem <- struct{}{}
@@ -91,7 +94,7 @@ func (hc *HealthChecker) checkAll(ctx context.Context) {
 					_ = hc.instanceRepo.UpdateStatus(ctx, id, newStatus)
 				}
 			}
-		}(inst.ID, inst.HealthEndpoint, inst.Status)
+		}(inst.ID, healthURL, inst.Status)
 	}
 
 	wg.Wait()
@@ -105,17 +108,28 @@ func (hc *HealthChecker) CheckInstance(ctx context.Context, instanceID uint) (st
 		return "", fmt.Errorf("instance not found: %w", err)
 	}
 
-	if inst.HealthEndpoint == "" {
-		return "", fmt.Errorf("instance has no health endpoint configured")
+	if inst.Endpoint == "" {
+		return "", fmt.Errorf("instance has no endpoint configured")
 	}
 
-	newStatus := hc.doCheck(ctx, inst.HealthEndpoint)
+	healthURL := ResolveHealthEndpoint(inst.Endpoint, inst.HealthEndpoint)
+	newStatus := hc.doCheck(ctx, healthURL)
 
 	if err := hc.instanceRepo.UpdateStatus(ctx, instanceID, newStatus); err != nil {
 		return "", fmt.Errorf("failed to update status: %w", err)
 	}
 
 	return newStatus, nil
+}
+
+// resolveHealthEndpoint returns the health endpoint for an instance.
+// If the instance has an explicit HealthEndpoint, it is used as-is.
+// Otherwise, it falls back to Endpoint + "/healthz".
+func ResolveHealthEndpoint(endpoint, healthEndpoint string) string {
+	if healthEndpoint != "" {
+		return healthEndpoint
+	}
+	return strings.TrimRight(endpoint, "/") + "/healthz"
 }
 
 // doCheck performs an HTTP GET to the health endpoint and returns the status string.

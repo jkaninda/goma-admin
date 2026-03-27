@@ -1,6 +1,9 @@
 package services
 
 import (
+	"net/http"
+
+	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/goma-admin/internal/config"
 	"github.com/jkaninda/goma-admin/internal/repository"
 	"github.com/jkaninda/okapi"
@@ -35,6 +38,15 @@ func (cm CommonService) Readyz(c *okapi.Context) error {
 
 func (cm CommonService) Version(c *okapi.Context) error {
 	return c.OK(okapi.M{"version": config.Version})
+}
+
+func (cm CommonService) Info(c *okapi.Context) error {
+	return c.JSON(http.StatusOK, okapi.M{
+		"name":         config.AppName,
+		"version":      config.Version,
+		"commit_id":    config.CommitID,
+		"openapi_docs": goutils.EnvBool("GOMA_ENABLE_DOCS", true),
+	})
 }
 func (cm CommonService) Dashboard(c *okapi.Context) error {
 	ctx := c.Request().Context()

@@ -6,7 +6,10 @@ export interface Instance {
   environment: string
   description: string
   endpoint: string
+  enableMetrics: boolean
   metricsEndpoint: string
+  metricsAuthType: string
+  hasMetricsAuth: boolean
   healthEndpoint: string
   version: string
   region: string
@@ -15,6 +18,9 @@ export interface Instance {
   status: string
   enabled: boolean
   builtIn: boolean
+  repositoryId: number | null
+  repositoryPath: string
+  autoSync: boolean
   writeConfig: boolean
   includeDockerRoutes: boolean
   metadata: Record<string, unknown>
@@ -76,11 +82,17 @@ export interface InstanceCreateRequest {
   environment: string
   description?: string
   endpoint: string
+  enableMetrics?: boolean
   metricsEndpoint?: string
+  metricsAuthType?: string
+  metricsAuthValue?: string
   healthEndpoint?: string
   version?: string
   region?: string
   tags?: string[]
+  repositoryId?: number | null
+  repositoryPath?: string
+  autoSync?: boolean
   writeConfig?: boolean
   includeDockerRoutes?: boolean
 }
@@ -135,5 +147,8 @@ export const instancesApi = {
   },
   checkHealth(id: number) {
     return api.post<{ status: string }>(`/instances/${id}/check-health`)
+  },
+  syncRepo(id: number) {
+    return api.post<ImportResult>(`/instances/${id}/sync-repo`)
   },
 }

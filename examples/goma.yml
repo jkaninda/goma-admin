@@ -1,0 +1,52 @@
+# =============================================================================
+# Goma Gateway Configuration
+# =============================================================================
+# This file configures the Goma Gateway to read routes and middlewares from
+# YAML files written by Goma Admin into the shared providers volume.
+#
+# The "default" directory matches the default instance that Goma Admin creates
+# on first start. If you add more instances in the dashboard, each one gets
+# its own subdirectory under /etc/goma/providers/.
+#
+# Documentation: https://goma.jkaninda.dev
+# =============================================================================
+
+version: 2
+
+gateway:
+  timeouts:
+    write: 40
+    read: 60
+    idle: 60
+
+  entryPoints:
+    web:
+      address: ":80"
+    webSecure:
+      address: ":443"
+
+  # --- File Provider (recommended for single-host deployments) ---------------
+  # The gateway watches the directory for changes and hot-reloads automatically.
+  providers:
+    file:
+      enabled: true
+      directory: /etc/goma/providers/default
+      watch: true
+
+  # --- HTTP Provider (alternative for multi-host / remote setups) ------------
+  # Uncomment this block and comment out the file provider above if you prefer
+  # the gateway to pull configuration from the Goma Admin API directly.
+  #
+  # providers:
+  #   http:
+  #     enabled: true
+  #     endpoint: "http://goma-admin:9000/api/v1/provider/{instance_name}"
+  #     interval: 60s
+  #     timeout: 10s
+  #     retryAttempts: 5
+  #     retryDelay: 3s
+  #     headers:
+  #       Authorization: "${INSTANCE_API_KEY}"
+
+  log:
+    level: info

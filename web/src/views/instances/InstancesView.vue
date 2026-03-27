@@ -132,6 +132,72 @@
                 <label class="form-label" for="inst-desc">Description</label>
                 <input id="inst-desc" v-model="form.description" class="form-input" placeholder="Optional description" />
               </div>
+
+              <!-- Metrics Section -->
+              <div class="form-section-divider">
+                <span class="form-section-title">Metrics</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label form-label-inline" for="inst-enable-metrics">
+                  <input id="inst-enable-metrics" type="checkbox" v-model="form.enableMetrics" class="form-checkbox" />
+                  Enable Metrics
+                </label>
+                <span class="form-hint">Fetch Prometheus metrics from this instance</span>
+              </div>
+              <template v-if="form.enableMetrics">
+                <div class="form-group">
+                  <label class="form-label" for="inst-metrics-endpoint">Metrics Endpoint</label>
+                  <input id="inst-metrics-endpoint" v-model="form.metricsEndpoint" class="form-input" placeholder="Defaults to endpoint/metrics" />
+                  <span class="form-hint">Leave empty to use {endpoint}/metrics</span>
+                </div>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label" for="inst-metrics-auth-type">Auth Type</label>
+                    <select id="inst-metrics-auth-type" v-model="form.metricsAuthType" class="form-select">
+                      <option value="">None</option>
+                      <option value="basic">Basic Auth</option>
+                      <option value="bearer">Bearer Token</option>
+                      <option value="header">Custom Header</option>
+                    </select>
+                  </div>
+                  <div v-if="form.metricsAuthType" class="form-group">
+                    <label class="form-label" for="inst-metrics-auth-value">Auth Value</label>
+                    <input
+                      id="inst-metrics-auth-value"
+                      v-model="form.metricsAuthValue"
+                      class="form-input"
+                      type="password"
+                      :placeholder="editing?.hasMetricsAuth ? '••••••• (leave empty to keep)' : (form.metricsAuthType === 'basic' ? 'user:password' : 'token')"
+                    />
+                  </div>
+                </div>
+              </template>
+
+              <!-- Repository Section -->
+              <div class="form-section-divider">
+                <span class="form-section-title">Git Repository</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="inst-repo">Repository</label>
+                <select id="inst-repo" v-model="form.repositoryId" class="form-select">
+                  <option :value="null">None</option>
+                  <option v-for="r in repositories" :key="r.id" :value="r.id">{{ r.name }} ({{ r.branch }})</option>
+                </select>
+              </div>
+              <template v-if="form.repositoryId">
+                <div class="form-group">
+                  <label class="form-label" for="inst-repo-path">Config Path</label>
+                  <input id="inst-repo-path" v-model="form.repositoryPath" class="form-input" placeholder="e.g. production/gateway-1" />
+                  <span class="form-hint">Path within the repository where YAML configs are stored</span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label form-label-inline" for="inst-auto-sync">
+                    <input id="inst-auto-sync" type="checkbox" v-model="form.autoSync" class="form-checkbox" />
+                    Auto-sync on push
+                  </label>
+                  <span class="form-hint">Automatically import configs when the repository receives a push</span>
+                </div>
+              </template>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
@@ -149,6 +215,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { instancesApi, type Instance, type InstanceCreateRequest } from '@/api/instances'
+import { repositoriesApi, type Repository } from '@/api/repositories'
 import { useConfirm } from '@/composables/useConfirm'
 
 const { confirm } = useConfirm()
@@ -159,6 +226,7 @@ const instances = ref<Instance[]>([])
 const search = ref('')
 const showCreate = ref(false)
 const editing = ref<Instance | null>(null)
+const repositories = ref<Repository[]>([])
 
 const form = reactive<InstanceCreateRequest>({
   name: '',
@@ -166,6 +234,13 @@ const form = reactive<InstanceCreateRequest>({
   description: '',
   endpoint: '',
   region: '',
+  enableMetrics: false,
+  metricsEndpoint: '',
+  metricsAuthType: '',
+  metricsAuthValue: '',
+  repositoryId: null as number | null,
+  repositoryPath: '',
+  autoSync: false,
 })
 
 function resetForm() {
@@ -174,6 +249,13 @@ function resetForm() {
   form.description = ''
   form.endpoint = ''
   form.region = ''
+  form.enableMetrics = false
+  form.metricsEndpoint = ''
+  form.metricsAuthType = ''
+  form.metricsAuthValue = ''
+  form.repositoryId = null
+  form.repositoryPath = ''
+  form.autoSync = false
 }
 
 function closeModal() {
@@ -189,6 +271,13 @@ function editInstance(inst: Instance) {
   form.description = inst.description
   form.endpoint = inst.endpoint
   form.region = inst.region
+  form.enableMetrics = inst.enableMetrics
+  form.metricsEndpoint = inst.metricsEndpoint || ''
+  form.metricsAuthType = inst.metricsAuthType || ''
+  form.metricsAuthValue = ''
+  form.repositoryId = inst.repositoryId || null
+  form.repositoryPath = inst.repositoryPath || ''
+  form.autoSync = inst.autoSync
 }
 
 async function handleSubmit() {
@@ -264,7 +353,10 @@ function envBadge(env: string): string {
   return map[env] || 'badge-neutral'
 }
 
-onMounted(fetchInstances)
+onMounted(() => {
+  fetchInstances()
+  repositoriesApi.list().then(res => { repositories.value = res.data }).catch(() => {})
+})
 </script>
 
 <style scoped>
@@ -311,5 +403,40 @@ onMounted(fetchInstances)
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.form-section-divider {
+  padding-top: 8px;
+  margin-bottom: -4px;
+  border-top: 1px solid var(--border-secondary);
+}
+
+.form-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-label-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.form-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary-600);
+  cursor: pointer;
+}
+
+.form-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 </style>

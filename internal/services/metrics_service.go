@@ -1,10 +1,13 @@
 package services
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +20,6 @@ import (
 // RouteMetric holds parsed per-route metrics from a gateway instance.
 type RouteMetric struct {
 	RouteName     string  `json:"routeName"`
-	RequestRate   float64 `json:"requestRate"`
 	TotalRequests float64 `json:"totalRequests"`
 	ErrorCount    float64 `json:"errorCount"`
 	ErrorRate     float64 `json:"errorRate"`
@@ -26,13 +28,15 @@ type RouteMetric struct {
 
 // InstanceMetrics holds aggregated metrics fetched from a gateway instance.
 type InstanceMetrics struct {
-	TotalRequests     float64       `json:"totalRequests"`
-	TotalErrors       float64       `json:"totalErrors"`
-	ErrorRate         float64       `json:"errorRate"`
-	AvgLatencyMs      float64       `json:"avgLatencyMs"`
-	ActiveConnections float64       `json:"activeConnections"`
-	RouteMetrics      []RouteMetric `json:"routeMetrics"`
-	RawMetrics        string        `json:"rawMetrics,omitempty"`
+	TotalRequests    float64       `json:"totalRequests"`
+	TotalErrors      float64       `json:"totalErrors"`
+	ErrorRate        float64       `json:"errorRate"`
+	AvgLatencyMs     float64       `json:"avgLatencyMs"`
+	RealtimeVisitors float64       `json:"realtimeVisitors"`
+	RoutesCount      float64       `json:"routesCount"`
+	MiddlewaresCount float64       `json:"middlewaresCount"`
+	UptimeSeconds    float64       `json:"uptimeSeconds"`
+	RouteMetrics     []RouteMetric `json:"routeMetrics"`
 }
 
 // MetricsService fetches and parses Prometheus metrics from gateway instances.
@@ -51,6 +55,16 @@ func NewMetricsService(db *gorm.DB) *MetricsService {
 	}
 }
 
+// resolveMetricsEndpoint returns the metrics endpoint for an instance.
+// If the instance has an explicit MetricsEndpoint, it is used as-is.
+// Otherwise, it falls back to Endpoint + "/metrics".
+func resolveMetricsEndpoint(endpoint, metricsEndpoint string) string {
+	if metricsEndpoint != "" {
+		return metricsEndpoint
+	}
+	return strings.TrimRight(endpoint, "/") + "/metrics"
+}
+
 // GetMetrics fetches Prometheus metrics from a gateway instance and returns parsed results.
 func (s *MetricsService) GetMetrics(c *okapi.Context) error {
 	id, err := parseMetricsIDParam(c)
@@ -63,11 +77,17 @@ func (s *MetricsService) GetMetrics(c *okapi.Context) error {
 		return c.AbortNotFound("Instance not found")
 	}
 
-	if instance.MetricsEndpoint == "" {
-		return c.AbortBadRequest("Metrics endpoint is not configured for this instance", nil)
+	if !instance.EnableMetrics {
+		return c.AbortBadRequest("Metrics are not enabled for this instance", nil)
 	}
 
-	body, err := s.fetchMetrics(instance.MetricsEndpoint)
+	if instance.Endpoint == "" {
+		return c.AbortBadRequest("Instance has no endpoint configured", nil)
+	}
+
+	metricsURL := resolveMetricsEndpoint(instance.Endpoint, instance.MetricsEndpoint)
+
+	body, err := s.fetchMetrics(c.Request().Context(), metricsURL, instance.MetricsAuthType, instance.MetricsAuthValue)
 	if err != nil {
 		return c.AbortInternalServerError("Failed to fetch metrics from gateway", err)
 	}
@@ -88,11 +108,17 @@ func (s *MetricsService) GetRawMetrics(c *okapi.Context) error {
 		return c.AbortNotFound("Instance not found")
 	}
 
-	if instance.MetricsEndpoint == "" {
-		return c.AbortBadRequest("Metrics endpoint is not configured for this instance", nil)
+	if !instance.EnableMetrics {
+		return c.AbortBadRequest("Metrics are not enabled for this instance", nil)
 	}
 
-	body, err := s.fetchMetrics(instance.MetricsEndpoint)
+	if instance.Endpoint == "" {
+		return c.AbortBadRequest("Instance has no endpoint configured", nil)
+	}
+
+	metricsURL := resolveMetricsEndpoint(instance.Endpoint, instance.MetricsEndpoint)
+
+	body, err := s.fetchMetrics(c.Request().Context(), metricsURL, instance.MetricsAuthType, instance.MetricsAuthValue)
 	if err != nil {
 		return c.AbortInternalServerError("Failed to fetch metrics from gateway", err)
 	}
@@ -102,9 +128,27 @@ func (s *MetricsService) GetRawMetrics(c *okapi.Context) error {
 	return writeErr
 }
 
-// fetchMetrics performs an HTTP GET to the given metrics endpoint and returns the body.
-func (s *MetricsService) fetchMetrics(endpoint string) (string, error) {
-	resp, err := s.httpClient.Get(endpoint)
+// maxMetricsBodySize is the maximum allowed response size from a metrics endpoint (5 MB).
+const maxMetricsBodySize = 5 * 1024 * 1024
+
+// fetchMetrics performs an HTTP GET to the given metrics endpoint with optional authentication.
+func (s *MetricsService) fetchMetrics(ctx context.Context, endpoint, authType, authValue string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Apply authentication
+	switch authType {
+	case "basic":
+		req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(authValue)))
+	case "bearer":
+		req.Header.Set("Authorization", "Bearer "+authValue)
+	case "header":
+		req.Header.Set("Authorization", authValue)
+	}
+
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to connect to metrics endpoint: %w", err)
 	}
@@ -114,9 +158,13 @@ func (s *MetricsService) fetchMetrics(endpoint string) (string, error) {
 		return "", fmt.Errorf("metrics endpoint returned status %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	limited := io.LimitReader(resp.Body, maxMetricsBodySize+1)
+	data, err := io.ReadAll(limited)
 	if err != nil {
 		return "", fmt.Errorf("failed to read metrics response: %w", err)
+	}
+	if len(data) > maxMetricsBodySize {
+		return "", fmt.Errorf("metrics response exceeds maximum size of %d bytes", maxMetricsBodySize)
 	}
 	return string(data), nil
 }
@@ -141,51 +189,67 @@ type prometheusLine struct {
 func parsePrometheusMetrics(raw string) *InstanceMetrics {
 	lines := parsePrometheusLines(raw)
 
-	// Accumulators per route
+	// Accumulators per route name
 	routes := make(map[string]*routeAccumulator)
 
-	var activeConnections float64
+	var realtimeVisitors, routesCount, middlewaresCount, uptimeSeconds float64
 
 	for _, line := range lines {
-		route := line.labels["route"]
+		// Goma Gateway uses "name" label for route name
+		route := line.labels["name"]
+		if route == "" {
+			route = line.labels["route"]
+		}
 
 		switch line.name {
-		// goma_requests_total or http_requests_total
-		case "goma_requests_total", "http_requests_total":
+		// Request totals — gateway_requests_total{method, name}
+		case "gateway_requests_total", "goma_requests_total":
 			if route == "" {
 				continue
 			}
 			acc := getOrCreateRoute(routes, route)
 			acc.totalRequests += line.value
 
+		// Response status — gateway_response_status_total{method, name, status}
+		case "gateway_response_status_total", "goma_response_status_total":
+			if route == "" {
+				continue
+			}
+			acc := getOrCreateRoute(routes, route)
 			status := line.labels["status"]
 			if isErrorStatus(status) {
 				acc.errorCount += line.value
 			}
 
-		// goma_request_duration_seconds_sum / http_request_duration_seconds_sum
-		case "goma_request_duration_seconds_sum", "http_request_duration_seconds_sum":
+		// Latency sum
+		case "gateway_request_duration_seconds_sum", "goma_request_duration_seconds_sum":
 			if route == "" {
 				continue
 			}
 			acc := getOrCreateRoute(routes, route)
 			acc.latencySum += line.value
 
-		// goma_request_duration_seconds_count / http_request_duration_seconds_count
-		case "goma_request_duration_seconds_count", "http_request_duration_seconds_count":
+		// Latency count
+		case "gateway_request_duration_seconds_count", "goma_request_duration_seconds_count":
 			if route == "" {
 				continue
 			}
 			acc := getOrCreateRoute(routes, route)
 			acc.latencyCount += line.value
 
-		// Active connections gauge
-		case "goma_active_connections", "http_active_connections":
-			activeConnections += line.value
+		// Gauges
+		case "gateway_realtime_visitors_count", "goma_active_connections":
+			realtimeVisitors += line.value
+		case "gateway_routes_count":
+			routesCount = line.value
+		case "gateway_middlewares_count":
+			middlewaresCount = line.value
+		case "gateway_uptime_seconds":
+			uptimeSeconds = line.value
 		}
 	}
 
-	// Build route metrics
+	// Build route metrics sorted by total requests descending
 	routeMetrics := make([]RouteMetric, 0, len(routes))
 	var totalRequests, totalErrors, totalLatencySum, totalLatencyCount float64
 
@@ -211,6 +275,10 @@ func parsePrometheusMetrics(raw string) *InstanceMetrics {
 		totalLatencyCount += acc.latencyCount
 	}
 
+	sort.Slice(routeMetrics, func(i, j int) bool {
+		return routeMetrics[i].TotalRequests > routeMetrics[j].TotalRequests
+	})
+
 	var overallErrorRate float64
 	if totalRequests > 0 {
 		overallErrorRate = roundTo((totalErrors / totalRequests) * 100)
@@ -221,12 +289,15 @@ func parsePrometheusMetrics(raw string) *InstanceMetrics {
 	}
 
 	return &InstanceMetrics{
-		TotalRequests:     totalRequests,
-		TotalErrors:       totalErrors,
-		ErrorRate:         overallErrorRate,
-		AvgLatencyMs:      overallAvgLatency,
-		ActiveConnections: activeConnections,
-		RouteMetrics:      routeMetrics,
+		TotalRequests:    totalRequests,
+		TotalErrors:      totalErrors,
+		ErrorRate:        overallErrorRate,
+		AvgLatencyMs:     overallAvgLatency,
+		RealtimeVisitors: realtimeVisitors,
+		RoutesCount:      routesCount,
+		MiddlewaresCount: middlewaresCount,
+		UptimeSeconds:    uptimeSeconds,
+		RouteMetrics:     routeMetrics,
 	}
 }
 
@@ -292,7 +363,6 @@ func parseSingleLine(line string) (prometheusLine, bool) {
 
 // parseLabels parses the comma-separated key="value" pairs inside braces.
 func parseLabels(s string, out map[string]string) {
-	// Handle labels like: route="/api",method="GET",status="200"
 	for s != "" {
 		s = strings.TrimSpace(s)
 		if s == "" {
@@ -306,7 +376,6 @@ func parseLabels(s string, out map[string]string) {
 		key := strings.TrimSpace(s[:eqIdx])
 		s = s[eqIdx+1:]
 
-		// Value should be quoted
 		if len(s) == 0 {
 			break
 		}
@@ -318,12 +387,10 @@ func parseLabels(s string, out map[string]string) {
 			}
 			out[key] = s[:endQuote]
 			s = s[endQuote+1:]
-			// Skip comma
 			if len(s) > 0 && s[0] == ',' {
 				s = s[1:]
 			}
 		} else {
-			// Unquoted value - read until comma or end
 			commaIdx := strings.IndexByte(s, ',')
 			if commaIdx < 0 {
 				out[key] = strings.TrimSpace(s)
@@ -343,9 +410,6 @@ func isErrorStatus(status string) bool {
 	return status[0] == '4' || status[0] == '5'
 }
 
-// routeAcc is used by parsePrometheusMetrics (declared there as a local type),
-// but Go doesn't allow referring to block-scoped types outside the function.
-// We promote it to package level so getOrCreateRoute can reference it.
 type routeAccumulator struct {
 	totalRequests float64
 	errorCount    float64

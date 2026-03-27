@@ -6,6 +6,7 @@ import (
 	"time"
 
 	goutils "github.com/jkaninda/go-utils"
+	"github.com/jkaninda/goma-admin/internal/crypto"
 	"github.com/jkaninda/okapi"
 	"github.com/jkaninda/okapi/okapicli"
 	"gorm.io/driver/postgres"
@@ -56,10 +57,17 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 		OAuth: OAuthConfig{
 			BaseURL: goutils.Env("GOMA_BASE_URL", "http://localhost:9000"),
 		},
+		Encryption: EncryptionConfig{
+			Key: goutils.Env("GOMA_ENCRYPTION_KEY", ""),
+		},
 		HealthCheck: HealthCheckConfig{
 			Enabled:  goutils.EnvBool("GOMA_HEALTH_CHECK_ENABLED", true),
 			Interval: parseDuration(goutils.Env("GOMA_HEALTH_CHECK_INTERVAL", "30s"), 30*time.Second),
 			Timeout:  parseDuration(goutils.Env("GOMA_HEALTH_CHECK_TIMEOUT", "5s"), 5*time.Second),
+		},
+		RepoSync: RepoSyncConfig{
+			Enabled:  goutils.EnvBool("GOMA_REPO_SYNC_ENABLED", true),
+			Interval: parseDuration(goutils.Env("GOMA_REPO_SYNC_INTERVAL", "2m"), 2*time.Minute),
 		},
 		ProvidersDir: goutils.Env("GOMA_PROVIDERS_DIR", "/etc/goma/providers"),
 		WebDir:       goutils.Env("GOMA_WEB_DIR", "web/dist"),
@@ -95,6 +103,14 @@ func (c *Config) initialize(app *okapi.Okapi) error {
 		return err
 	}
 	c.Database.DB = db
+
+	// Init encryption — prefer dedicated key, fall back to JWT secret
+	encKey := c.Encryption.Key
+	if encKey == "" {
+		encKey = c.JWT.Secret
+	}
+	crypto.Init(encKey)
+
 	// Init Doc
 	if c.Server.enableDocs {
 		app.WithOpenAPIDocs(okapi.OpenAPI{
