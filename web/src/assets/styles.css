@@ -605,7 +605,7 @@ tr:hover td {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 520px;
+  max-width: 820px;
   max-height: 90vh;
   overflow-y: auto;
   animation: modalSlideUp 200ms ease;

@@ -55,7 +55,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="inst in filteredInstances" :key="inst.id">
+              <tr v-for="inst in filteredInstances" :key="inst.id"
+              class="cursor-pointer"
+              @click="$router.push(`/instances/${inst.id}`)">
                 <td>
                   <router-link :to="`/instances/${inst.id}`" class="instance-name-link">
                     {{ inst.name }}
@@ -77,8 +79,8 @@
                 </td>
                 <td class="text-right">
                   <div style="display: flex; gap: 6px; justify-content: flex-end">
-                    <button class="btn btn-secondary btn-sm" @click="editInstance(inst)">Edit</button>
-                    <button v-if="!inst.builtIn" class="btn btn-danger btn-sm" @click="deleteInstance(inst)">Delete</button>
+                    <button class="btn btn-secondary btn-sm" @click.stop="editInstance(inst)">Edit</button>
+                    <button v-if="!inst.builtIn" class="btn btn-danger btn-sm" @click.stop="deleteInstance(inst)">Delete</button>
                   </div>
                 </td>
               </tr>
