@@ -1,49 +1,53 @@
 import api from './client'
+import type { PaginatedResponse } from './types'
 
-export interface User {
+export interface UserDetail {
   id: string
-  name: string
   email: string
+  name: string
+  avatar?: string
   role: string
+  email_verified: boolean
+  active: boolean
+  oauth_provider?: string
+  last_login_at?: string
   created_at: string
-  updated_at: string
 }
 
-export interface UserListResponse {
-  users: User[]
-  total: number
-  page: number
-  limit: number
+export interface CreateUserRequest {
+  email: string
+  name: string
+  password: string
+  role: string
 }
 
 export interface UpdateUserRequest {
-  name?: string
   email?: string
+  name?: string
   role?: string
-}
-
-export interface UpdatePasswordRequest {
-  password: string
+  active?: boolean
 }
 
 export const usersApi = {
-  listUsers(page = 1, limit = 20) {
-    return api.get<UserListResponse>('/users', { params: { page, limit } })
+  list(page = 1, pageSize = 20, role?: string, search?: string) {
+    return api.get<PaginatedResponse<UserDetail>>('/users', {
+      params: { page, page_size: pageSize, role, search },
+    })
   },
 
-  getUser(id: string) {
-    return api.get<User>(`/users/${id}`)
+  get(id: string) {
+    return api.get<UserDetail>(`/users/${id}`)
   },
 
-  updateUser(id: string, data: UpdateUserRequest) {
-    return api.put<User>(`/users/${id}`, data)
+  create(data: CreateUserRequest) {
+    return api.post<UserDetail>('/users', data)
   },
 
-  deleteUser(id: string) {
+  update(id: string, data: UpdateUserRequest) {
+    return api.put<UserDetail>(`/users/${id}`, data)
+  },
+
+  delete(id: string) {
     return api.delete(`/users/${id}`)
-  },
-
-  updatePassword(id: string, data: UpdatePasswordRequest) {
-    return api.put(`/users/${id}/password`, data)
   },
 }

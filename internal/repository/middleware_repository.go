@@ -56,13 +56,17 @@ func (r *MiddlewareRepository) List(ctx context.Context) ([]models.Middleware, e
 	return middlewares, err
 }
 
-func (r *MiddlewareRepository) ListPaginated(ctx context.Context, instanceID *uint, limit, offset int) ([]models.Middleware, int64, error) {
+func (r *MiddlewareRepository) ListPaginated(ctx context.Context, instanceID *uint, limit, offset int, search string) ([]models.Middleware, int64, error) {
 	var middlewares []models.Middleware
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&models.Middleware{})
 	if instanceID != nil {
 		query = query.Where("instance_id = ?", *instanceID)
+	}
+	if search != "" {
+		pattern := "%" + search + "%"
+		query = query.Where("name ILIKE ? OR type ILIKE ?", pattern, pattern)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

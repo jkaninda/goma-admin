@@ -1,4 +1,42 @@
 services:
+  goma-gateway:
+    image: jkaninda/goma-gateway:latest
+    container_name: goma-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      GOMA_LOG_LEVEL: info
+      GOMA_EXTRA_CONFIG_DIR: /etc/goma/providers/default # Default instance
+      GOMA_EXTRA_CONFIG_WATCH: true
+      GOMA_ENTRYPOINT_WEB_ADDRESS: :80
+      GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
+    volumes:
+      - ./data/providers:/etc/goma/providers
+  goma-admin:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: goma-admin
+    labels:
+      - "goma.enable=false"
+      - "goma.port=9000"
+      - "goma.hosts=goma-admin.example.com"
+    ports:
+      - "9000:9000"
+    environment:
+      GOMA_DB_URL: postgresql://goma:goma@goma-postgres:5432/goma?sslmode=disable
+      GOMA_ENVIRONMENT: development
+      GOMA_WEB_DIR: /app/web/dist
+      GOMA_PROVIDERS_DIR: /etc/goma/providers
+      GOMA_DOCKER_ENABLED: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Required for Docker provider
+      - ./data/providers:/etc/goma/providers
+    depends_on:
+      goma-postgres:
+        condition: service_healthy
+    restart: unless-stopped
   goma-postgres:
     image: postgres:16-alpine
     container_name: goma-admin-postgres
@@ -15,23 +53,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  goma-admin:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    container_name: goma-admin
-    ports:
-      - "9000:9000"
-    environment:
-      GOMA_DB_URL: postgresql://goma:goma@goma-postgres:5432/goma?sslmode=disable
-      GOMA_PORT: 9000
-      GOMA_ENVIRONMENT: development
-      GOMA_WEB_DIR: /app/web/dist
-    depends_on:
-      goma-postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
+  # Web Service - Minimal Configuration
+  web-service:
+    image: jkaninda/okapi-example
+    container_name: web-service
+    labels:
+      - "goma.enable=true"
+      - "goma.port=8080"
+      #- "goma.hosts=example.com, www.example.com"
 volumes:
   postgres_data:

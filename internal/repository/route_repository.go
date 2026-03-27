@@ -47,13 +47,17 @@ func (r *RouteRepository) List(ctx context.Context) ([]models.Route, error) {
 	return routes, err
 }
 
-func (r *RouteRepository) ListPaginated(ctx context.Context, instanceID *uint, limit, offset int) ([]models.Route, int64, error) {
+func (r *RouteRepository) ListPaginated(ctx context.Context, instanceID *uint, limit, offset int, search string) ([]models.Route, int64, error) {
 	var routes []models.Route
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&models.Route{})
 	if instanceID != nil {
 		query = query.Where("instance_id = ?", *instanceID)
+	}
+	if search != "" {
+		pattern := "%" + search + "%"
+		query = query.Where("name ILIKE ? OR config->>'path' ILIKE ? OR config->>'target' ILIKE ?", pattern, pattern, pattern)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

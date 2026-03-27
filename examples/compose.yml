@@ -1,13 +1,70 @@
+# =============================================================================
+# Goma Admin - Docker Compose Deployment Example
+# =============================================================================
+# Usage:
+#   cp .env.example .env   # then edit .env with your production values
+#   docker compose up -d
+#
+# This starts three core services:
+#   - goma-gateway   : API Gateway (ports 80/443)
+#   - goma-admin     : Control Plane dashboard (port 9000)
+#   - goma-postgres  : PostgreSQL database
+#
+# The gateway and admin share a "providers" volume so that configuration
+# files written by Goma Admin are immediately available to the gateway.
+# =============================================================================
+
 services:
+  # ---------------------------------------------------------------------------
+  # Goma Gateway - API Gateway / Data Plane
+  # ---------------------------------------------------------------------------
+  goma-gateway:
+    image: jkaninda/goma-gateway:latest
+    container_name: goma-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      GOMA_LOG_LEVEL: info
+      # "default" is the default instance created by Goma Admin on first start
+      GOMA_EXTRA_CONFIG_DIR: /etc/goma/providers/default
+      GOMA_EXTRA_CONFIG_WATCH: true
+      GOMA_ENTRYPOINT_WEB_ADDRESS: :80
+      GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
+    volumes:
+      - providers:/etc/goma/providers
+
+  # ---------------------------------------------------------------------------
+  # Goma Admin - Control Plane / Dashboard
+  # ---------------------------------------------------------------------------
+  goma-admin:
+    image: jkaninda/goma-admin:latest
+    container_name: goma-admin
+    restart: unless-stopped
+    ports:
+      - "${GOMA_PORT:-9000}:9000"
+    env_file:
+      - .env
+    volumes:
+      - providers:/etc/goma/providers
+      # Uncomment to enable the Docker provider (auto-discover routes from labels)
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      goma-postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
   goma-postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: goma-admin-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${GOMA_DB_USER:-goma}
       POSTGRES_PASSWORD: ${GOMA_DB_PASSWORD:-goma}
       POSTGRES_DB: ${GOMA_DB_NAME:-goma}
-    ports:
-      - "${GOMA_DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,19 +72,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
-  goma-admin:
-    image: jkaninda/goma-admin:latest
-    container_name: goma-admin
-    ports:
-      - "${GOMA_PORT:-9000}:9000"
-    env_file:
-      - .env
-    depends_on:
-      goma-postgres:
-        condition: service_healthy
-    restart: unless-stopped
+  # ---------------------------------------------------------------------------
+  # Example: Backend service with Docker labels (optional)
+  # ---------------------------------------------------------------------------
+  # When the Docker provider is enabled (GOMA_DOCKER_ENABLED=true), Goma Admin
+  # auto-discovers services by their "goma.*" labels and registers routes.
+  #
+  # api-service:
+  #   image: jkaninda/okapi-example
+  #   labels:
+  #     - "goma.enable=true"
+  #     - "goma.name=api-example"
+  #     - "goma.path=/"
+  #     - "goma.port=8080"
+  #     - "goma.scheme=http"
+  #     - "goma.rewrite=/"
+  #     - "goma.hosts=api.example.com"
+  #     - "goma.methods=GET,POST,PUT,DELETE,PATCH"
+  #     - "goma.healthCheck.path=/"
+  #     - "goma.healthCheck.interval=30s"
+  #     - "goma.healthCheck.timeout=5s"
+  #     - "goma.middlewares=basic-auth,rate-limit,cors"
 
 volumes:
-  postgres_data:
+  postgres_data: {}
+  providers: {}

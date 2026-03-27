@@ -24,6 +24,7 @@ type Pageable struct {
 
 // ListRequest is the standard pagination request used by all list endpoints.
 type ListRequest struct {
-	Page int `query:"page" default:"0" description:"Page number (0-based)"`
-	Size int `query:"size" default:"20" description:"Page size (max 100)"`
+	Page   int    `query:"page" default:"0" description:"Page number (0-based)"`
+	Size   int    `query:"size" default:"20" description:"Page size (max 100)"`
+	Search string `query:"q" description:"Search filter"`
 }

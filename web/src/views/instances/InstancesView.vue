@@ -60,6 +60,7 @@
                   <router-link :to="`/instances/${inst.id}`" class="instance-name-link">
                     {{ inst.name }}
                   </router-link>
+                  <span v-if="inst.builtIn" class="badge badge-info" style="margin-left: 6px; font-size: 10px;">Built-in</span>
                 </td>
                 <td>
                   <span :class="['badge', envBadge(inst.environment)]">{{ inst.environment }}</span>
@@ -77,7 +78,7 @@
                 <td class="text-right">
                   <div style="display: flex; gap: 6px; justify-content: flex-end">
                     <button class="btn btn-secondary btn-sm" @click="editInstance(inst)">Edit</button>
-                    <button class="btn btn-danger btn-sm" @click="deleteInstance(inst)">Delete</button>
+                    <button v-if="!inst.builtIn" class="btn btn-danger btn-sm" @click="deleteInstance(inst)">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -106,7 +107,7 @@
             <div class="modal-body">
               <div class="form-group">
                 <label class="form-label" for="inst-name">Name</label>
-                <input id="inst-name" v-model="form.name" class="form-input" required placeholder="my-gateway" />
+                <input id="inst-name" v-model="form.name" class="form-input" required placeholder="my-gateway" :disabled="editing?.builtIn" />
               </div>
               <div class="form-grid">
                 <div class="form-group">

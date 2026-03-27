@@ -21,8 +21,10 @@ export interface ImportResult {
 }
 
 export const routesApi = {
-  list(page = 0, size = 20) {
-    return api.get('/routes', { params: { page, size } })
+  list(page = 0, size = 20, search = '') {
+    const params: Record<string, unknown> = { page, size }
+    if (search) params.q = search
+    return api.get('/routes', { params })
   },
   get(id: number) {
     return api.get<Route>(`/routes/${id}`)

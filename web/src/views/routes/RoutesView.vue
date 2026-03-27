@@ -44,7 +44,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="route in filteredRoutes" :key="route.id">
+              <tr v-for="route in routes" :key="route.id">
                 <td>
                   <router-link :to="`/routes/${route.id}`" class="cell-name-link">
                     {{ route.name }}
@@ -73,7 +73,7 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="filteredRoutes.length === 0">
+              <tr v-if="routes.length === 0">
                 <td colspan="6" class="text-center text-muted" style="padding: 32px">No matching routes</td>
               </tr>
             </tbody>
@@ -95,14 +95,58 @@
           <input v-model="formName" required class="form-input" placeholder="my-api-route" />
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Configuration (YAML)</label>
-          <CodeEditor
-            v-model="yamlContent"
-            language="yaml"
-            min-height="360px"
-          />
+        <!-- Mode toggle -->
+        <div class="tabs mode-tabs">
+          <button :class="['tab', { active: formMode === 'simple' }]" @click="switchMode('simple')">Simple</button>
+          <button :class="['tab', { active: formMode === 'advanced' }]" @click="switchMode('advanced')">Advanced</button>
         </div>
+
+        <!-- Simple mode -->
+        <template v-if="formMode === 'simple'">
+          <div class="form-group">
+            <label class="form-label">Path</label>
+            <input v-model="simpleForm.path" class="form-input" placeholder="/" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target</label>
+            <input v-model="simpleForm.target" class="form-input" placeholder="http://backend:8080" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hosts <span class="form-hint-inline">(optional, comma-separated)</span></label>
+            <input v-model="simpleForm.hosts" class="form-input" placeholder="api.example.com, api2.example.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Methods <span class="form-hint-inline">(optional, defaults to all)</span></label>
+            <div class="methods-grid">
+              <label v-for="m in allMethods" :key="m" class="checkbox-label">
+                <input type="checkbox" :value="m" v-model="simpleForm.methods" />
+                {{ m }}
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rewrite <span class="form-hint-inline">(optional)</span></label>
+            <input v-model="simpleForm.rewrite" class="form-input" placeholder="/new-prefix/" />
+          </div>
+          <div class="form-group toggle-row">
+            <label class="form-label">Enabled</label>
+            <button :class="['toggle-btn', { active: simpleForm.enabled }]" @click="simpleForm.enabled = !simpleForm.enabled">
+              <span class="toggle-slider"></span>
+            </button>
+          </div>
+        </template>
+
+        <!-- Advanced mode -->
+        <template v-else>
+          <div class="form-group">
+            <label class="form-label">Configuration (YAML)</label>
+            <CodeEditor
+              v-model="yamlContent"
+              language="yaml"
+              min-height="360px"
+            />
+          </div>
+        </template>
 
         <div v-if="yamlError" class="form-error yaml-error">{{ yamlError }}</div>
 
@@ -163,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { routesApi, type Route, type RouteCreateRequest, type ImportResult } from '@/api/routes'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
@@ -184,13 +228,29 @@ const formName = ref('')
 const yamlContent = ref('')
 const yamlError = ref('')
 const search = ref('')
+const formMode = ref<'simple' | 'advanced'>('simple')
 
-const filteredRoutes = computed(() => {
-  if (!search.value.trim()) return routes.value
-  const q = search.value.toLowerCase()
-  return routes.value.filter(
-    (r) => r.name.toLowerCase().includes(q) || String(r.config?.path || '').toLowerCase().includes(q) || String(r.config?.target || '').toLowerCase().includes(q)
-  )
+const allMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
+
+const simpleForm = ref({
+  path: '/',
+  target: '',
+  hosts: '',
+  methods: [] as string[],
+  rewrite: '',
+  enabled: true,
+})
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(search, () => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    fetchRoutes()
+  }, 300)
+})
+
+onUnmounted(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
 })
 
 /* ── Import State ── */
@@ -307,10 +367,72 @@ methods:
   - POST
 enabled: true`
 
+/* ── Simple ↔ Advanced mode switching ── */
+const simpleFieldKeys = new Set(['path', 'target', 'hosts', 'methods', 'rewrite', 'enabled'])
+
+function hasAdvancedFields(config: Record<string, unknown>): boolean {
+  return Object.keys(config).some(k => !simpleFieldKeys.has(k))
+}
+
+function simpleFormToConfig(): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    path: simpleForm.value.path || '/',
+    target: simpleForm.value.target,
+    enabled: simpleForm.value.enabled,
+  }
+  const hosts = simpleForm.value.hosts
+    .split(',')
+    .map(h => h.trim())
+    .filter(Boolean)
+  if (hosts.length) config.hosts = hosts
+  if (simpleForm.value.methods.length) config.methods = [...simpleForm.value.methods]
+  if (simpleForm.value.rewrite) config.rewrite = simpleForm.value.rewrite
+  return config
+}
+
+function configToSimpleForm(config: Record<string, unknown>) {
+  simpleForm.value.path = (config.path as string) || '/'
+  simpleForm.value.target = (config.target as string) || ''
+  const hosts = config.hosts
+  simpleForm.value.hosts = Array.isArray(hosts) ? hosts.join(', ') : ''
+  const methods = config.methods
+  simpleForm.value.methods = Array.isArray(methods) ? methods.map(String) : []
+  simpleForm.value.rewrite = (config.rewrite as string) || ''
+  simpleForm.value.enabled = config.enabled !== false
+}
+
+function resetSimpleForm() {
+  simpleForm.value = { path: '/', target: '', hosts: '', methods: [], rewrite: '', enabled: true }
+}
+
+function switchMode(mode: 'simple' | 'advanced') {
+  if (mode === formMode.value) return
+  yamlError.value = ''
+  if (mode === 'advanced') {
+    // Simple → Advanced: serialize form fields to YAML
+    yamlContent.value = objectToYaml(simpleFormToConfig())
+  } else {
+    // Advanced → Simple: parse YAML into form fields
+    try {
+      const config = yamlToObject(yamlContent.value)
+      if (hasAdvancedFields(config)) {
+        yamlError.value = 'This config has advanced fields that will be lost in Simple mode. Switch anyway or stay in Advanced.'
+      }
+      configToSimpleForm(config)
+    } catch {
+      yamlError.value = 'Could not parse YAML into simple form.'
+      return
+    }
+  }
+  formMode.value = mode
+}
+
 /* ── Modal open / close ── */
 function openCreate() {
   editing.value = null
   formName.value = ''
+  formMode.value = 'simple'
+  resetSimpleForm()
   yamlContent.value = defaultYaml
   yamlError.value = ''
   modalOpen.value = true
@@ -319,8 +441,17 @@ function openCreate() {
 function openEdit(route: Route) {
   editing.value = route
   formName.value = route.name
-  yamlContent.value = objectToYaml(route.config || {})
   yamlError.value = ''
+  const config = route.config || {}
+  // Default to advanced mode if config has fields the simple form can't represent
+  if (hasAdvancedFields(config)) {
+    formMode.value = 'advanced'
+    yamlContent.value = objectToYaml(config)
+  } else {
+    formMode.value = 'simple'
+    configToSimpleForm(config)
+    yamlContent.value = objectToYaml(config)
+  }
   modalOpen.value = true
 }
 
@@ -330,6 +461,8 @@ function closeModal() {
   formName.value = ''
   yamlContent.value = ''
   yamlError.value = ''
+  formMode.value = 'simple'
+  resetSimpleForm()
 }
 
 /* ── Submit ── */
@@ -342,11 +475,23 @@ async function handleSubmit() {
   }
 
   let config: Record<string, unknown>
-  try {
-    config = yamlToObject(yamlContent.value)
-  } catch {
-    yamlError.value = 'Failed to parse YAML. Please check your syntax.'
-    return
+  if (formMode.value === 'simple') {
+    if (!simpleForm.value.path.trim()) {
+      yamlError.value = 'Path is required.'
+      return
+    }
+    if (!simpleForm.value.target.trim()) {
+      yamlError.value = 'Target is required.'
+      return
+    }
+    config = simpleFormToConfig()
+  } else {
+    try {
+      config = yamlToObject(yamlContent.value)
+    } catch {
+      yamlError.value = 'Failed to parse YAML. Please check your syntax.'
+      return
+    }
   }
 
   const payload: RouteCreateRequest = {
@@ -363,8 +508,8 @@ async function handleSubmit() {
     }
     closeModal()
     await fetchRoutes()
-  } catch {
-    // Error handled by API interceptor
+  } catch (e: any) {
+    yamlError.value = e.response?.data?.message || 'Failed to save route.'
   } finally {
     saving.value = false
   }
@@ -454,7 +599,7 @@ async function handleImport() {
 async function fetchRoutes() {
   loading.value = true
   try {
-    const res = await routesApi.list()
+    const res = await routesApi.list(0, 20, search.value)
     routes.value = res.data.data || []
   } catch {
     // Error handled by API interceptor
@@ -510,6 +655,32 @@ onMounted(fetchRoutes)
 
 .yaml-error {
   margin-top: 8px;
+}
+
+.mode-tabs {
+  margin-bottom: 16px;
+}
+
+.methods-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-row .form-label {
+  margin-bottom: 0;
+}
+
+.form-hint-inline {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .modal-footer {

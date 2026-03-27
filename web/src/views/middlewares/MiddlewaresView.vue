@@ -42,7 +42,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="mw in filteredMiddlewares" :key="mw.id">
+              <tr v-for="mw in middlewares" :key="mw.id">
                 <td>
                   <router-link :to="`/middlewares/${mw.id}`" class="cell-name-link">{{ mw.name }}</router-link>
                 </td>
@@ -55,7 +55,7 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="filteredMiddlewares.length === 0">
+              <tr v-if="middlewares.length === 0">
                 <td colspan="4" class="text-center text-muted" style="padding: 32px">No matching middlewares</td>
               </tr>
             </tbody>
@@ -152,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { middlewaresApi, type Middleware, type MiddlewareCreateRequest, type ImportResult } from '@/api/middlewares'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
@@ -173,13 +173,17 @@ const editingId = ref<number | null>(null)
 const configYaml = ref('')
 const configError = ref('')
 const search = ref('')
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-const filteredMiddlewares = computed(() => {
-  if (!search.value.trim()) return middlewares.value
-  const q = search.value.toLowerCase()
-  return middlewares.value.filter(
-    (m) => m.name.toLowerCase().includes(q) || m.type.toLowerCase().includes(q)
-  )
+watch(search, () => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = setTimeout(() => {
+    fetchMiddlewares()
+  }, 300)
+})
+
+onUnmounted(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
 })
 
 /* ── Import State ── */
@@ -618,7 +622,7 @@ async function handleImport() {
 async function fetchMiddlewares() {
   loading.value = true
   try {
-    const res = await middlewaresApi.list()
+    const res = await middlewaresApi.list(0, 20, search.value)
     middlewares.value = res.data.data || []
   } catch {
     // Error handled by API interceptor

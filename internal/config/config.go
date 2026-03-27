@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	goutils "github.com/jkaninda/go-utils"
 	"github.com/jkaninda/okapi"
@@ -40,12 +41,28 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 			Issuer: goutils.Env("GOMA_JWT_ISSUER", "goma-admin"),
 		},
 		Auth: AuthConfig{
-			AdminPassword: goutils.Env("GOMA_ADMIN_PASSWORD", "admin"),
+			AdminEmail:    goutils.Env("GOMA_ADMIN_EMAIL", "admin@example.com"),
+			AdminPassword: goutils.Env("GOMA_ADMIN_PASSWORD", "Admin@1234"),
 		},
 		Log: LogConfig{
 			Level: goutils.Env("GOMA_LOG_LEVEL", "info"),
 		},
-		WebDir: goutils.Env("GOMA_WEB_DIR", "web/dist"),
+		Docker: DockerConfig{
+			Enabled:      goutils.EnvBool("GOMA_DOCKER_ENABLED", false),
+			DockerHost:   goutils.Env("GOMA_DOCKER_HOST", "unix:///var/run/docker.sock"),
+			PollInterval: parseDuration(goutils.Env("GOMA_DOCKER_POLL_INTERVAL", "10s"), 10*time.Second),
+			EnableSwarm:  goutils.EnvBool("GOMA_DOCKER_ENABLE_SWARM", false),
+		},
+		OAuth: OAuthConfig{
+			BaseURL: goutils.Env("GOMA_BASE_URL", "http://localhost:9000"),
+		},
+		HealthCheck: HealthCheckConfig{
+			Enabled:  goutils.EnvBool("GOMA_HEALTH_CHECK_ENABLED", true),
+			Interval: parseDuration(goutils.Env("GOMA_HEALTH_CHECK_INTERVAL", "30s"), 30*time.Second),
+			Timeout:  parseDuration(goutils.Env("GOMA_HEALTH_CHECK_TIMEOUT", "5s"), 5*time.Second),
+		},
+		ProvidersDir: goutils.Env("GOMA_PROVIDERS_DIR", "/etc/goma/providers"),
+		WebDir:       goutils.Env("GOMA_WEB_DIR", "web/dist"),
 	}
 	if err := cfg.initialize(app); err != nil {
 		return nil, err
@@ -91,6 +108,14 @@ func (c *Config) initialize(app *okapi.Okapi) error {
 		return err
 	}
 	return nil
+}
+
+func parseDuration(raw string, fallback time.Duration) time.Duration {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return fallback
+	}
+	return d
 }
 
 func parseCorsOrigins(raw string) []string {
