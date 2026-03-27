@@ -48,10 +48,10 @@
 ```mermaid
 graph LR
     subgraph Control Plane
-        UI[Web Dashboard<br/>Vue 3 + Vuetify]
+        UI[Web Dashboard<br/>Vue 3]
         API[Dashboard API<br/>Go + Okapi]
         DB[(Config Store &<br/>Audit Logs)]
-        Git[(Optional<br/>Git Provider)]
+        Git[(Git Provider)]
         DP[Docker Provider<br/>Auto-Discovery]
     end
 
