@@ -5,6 +5,7 @@
       <div class="sidebar-header">
         <img src="/logo.png" alt="Goma" class="sidebar-logo" />
         <span class="sidebar-brand-text">Goma Admin</span>
+
         <button class="sidebar-collapse-btn" @click="toggleSidebar" :title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline :points="sidebarCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6'" />
@@ -531,10 +532,11 @@ onUnmounted(() => {
 }
 
 .sidebar-collapsed .sidebar:not(.sidebar-mobile) .sidebar-collapse-btn {
-  right: auto;
-  left: 50%;
+  /* left: 50%; */
   transform: translateX(-50%);
-  top: 50px;
+  right: -15px;
+  top: 20px;
+  z-index: 999;
 }
 
 /* ─── Navigation ─── */
