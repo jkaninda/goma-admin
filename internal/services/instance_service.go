@@ -34,20 +34,20 @@ func (s InstanceService) List(c *okapi.Context) error {
 
 func (s InstanceService) Create(c *okapi.Context, input *dto.CreateInstanceRq) error {
 	instance := &models.Instance{
-		Name:            input.Body.Name,
-		Environment:     input.Body.Environment,
-		Description:     input.Body.Description,
-		Endpoint:        input.Body.Endpoint,
+		Name:             input.Body.Name,
+		Environment:      input.Body.Environment,
+		Description:      input.Body.Description,
+		Endpoint:         input.Body.Endpoint,
 		MetricsEndpoint:  input.Body.MetricsEndpoint,
 		MetricsAuthType:  input.Body.MetricsAuthType,
 		MetricsAuthValue: encryptSecret(input.Body.MetricsAuthValue),
 		HealthEndpoint:   input.Body.HealthEndpoint,
-		Version:         input.Body.Version,
-		Region:          input.Body.Region,
-		Tags:            input.Body.Tags,
-		RepositoryID:    input.Body.RepositoryID,
-		RepositoryPath:  input.Body.RepositoryPath,
-		WriteConfig:     true,
+		Version:          input.Body.Version,
+		Region:           input.Body.Region,
+		Tags:             input.Body.Tags,
+		RepositoryID:     input.Body.RepositoryID,
+		RepositoryPath:   input.Body.RepositoryPath,
+		WriteConfig:      true,
 	}
 	if input.Body.EnableMetrics != nil {
 		instance.EnableMetrics = *input.Body.EnableMetrics

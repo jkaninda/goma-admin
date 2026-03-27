@@ -139,7 +139,7 @@ func (s *InstanceConfigService) Import(c *okapi.Context) error {
 
 		config := make(models.JSONB, len(raw)-1)
 		for k, v := range raw {
-			if k == "name" {
+			if k == fieldName {
 				continue
 			}
 			config[k] = v
@@ -408,7 +408,7 @@ func (s *InstanceConfigService) importYAMLBytes(ctx context.Context, instanceID 
 		}
 		config := make(models.JSONB, len(raw)-1)
 		for k, v := range raw {
-			if k == "name" {
+			if k == fieldName {
 				continue
 			}
 			config[k] = v
