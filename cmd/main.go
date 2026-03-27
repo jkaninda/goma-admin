@@ -29,10 +29,11 @@ func main() {
 		logger.Fatal("Failed to initialize config", "error", err)
 	}
 
-	// Docker provider (may be nil if disabled)
+	// Docker provider
 	var dockerProvider *docker.Provider
 	dockerCtx, dockerCancel := context.WithCancel(context.Background())
 	healthCtx, healthCancel := context.WithCancel(context.Background())
+	repoSyncCtx, repoSyncCancel := context.WithCancel(context.Background())
 
 	// Create the route instance
 	route := routes.NewRouter(context.Background(), app, conf, dockerProvider)
@@ -100,11 +101,25 @@ func main() {
 					}
 				}()
 			}
+
+			// Start repo syncer in background if enabled
+			if conf.RepoSync.Enabled {
+				gitSvc := services.NewGitService(conf.ProvidersDir + "/git-provider")
+				configSvc := services.NewInstanceConfigService(conf.Database.DB, providerWriter, nil)
+				configSvc.SetGitService(gitSvc)
+				repoSyncer := services.NewRepoSyncer(conf.Database.DB, gitSvc, configSvc, conf.RepoSync.Interval)
+				go func() {
+					if err := repoSyncer.Start(repoSyncCtx); err != nil && repoSyncCtx.Err() == nil {
+						logger.Error("Repo syncer stopped", "error", err)
+					}
+				}()
+			}
 		},
 		OnShutdown: func() {
 			logger.Info("Server shutting down gracefully...")
 			healthCancel()
 			dockerCancel()
+			repoSyncCancel()
 			if conf.Database.DB != nil {
 				if sqlDB, err := conf.Database.DB.DB(); err == nil {
 					_ = sqlDB.Close()

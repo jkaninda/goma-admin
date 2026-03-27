@@ -13,9 +13,11 @@ type Config struct {
 	JWT          JWTConfig
 	Auth         AuthConfig
 	OAuth        OAuthConfig
+	Encryption   EncryptionConfig
 	Log          LogConfig
 	Docker       DockerConfig
 	HealthCheck  HealthCheckConfig
+	RepoSync     RepoSyncConfig
 	ProvidersDir string
 	WebDir       string
 }
@@ -65,6 +67,15 @@ type HealthCheckConfig struct {
 	Enabled  bool
 	Interval time.Duration
 	Timeout  time.Duration
+}
+
+type RepoSyncConfig struct {
+	Enabled  bool
+	Interval time.Duration
+}
+
+type EncryptionConfig struct {
+	Key string // AES-256 encryption key for secrets at rest
 }
 
 type OAuthConfig struct {

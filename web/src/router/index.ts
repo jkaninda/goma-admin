@@ -41,6 +41,17 @@ const router = createRouter({
           props: true,
         },
         {
+          path: 'repositories',
+          name: 'repositories',
+          component: () => import('@/views/repositories/RepositoriesView.vue'),
+        },
+        {
+          path: 'repositories/:id',
+          name: 'repository-detail',
+          component: () => import('@/views/repositories/RepositoryDetailView.vue'),
+          props: true,
+        },
+        {
           path: 'routes',
           name: 'routes',
           component: () => import('@/views/routes/RoutesView.vue'),

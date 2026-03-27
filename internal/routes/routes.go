@@ -42,6 +42,7 @@ var (
 	auditService          *services.AuditService
 	metricsService        *services.MetricsService
 	userService           *services.UserService
+	repositoryService     *services.RepositoryService
 )
 
 // SetDockerProvider sets the Docker provider after it has been initialized.
@@ -66,6 +67,9 @@ func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config, docke
 	apiKeyService = services.NewAPIKeyService(conf.Database.DB)
 	profileService = services.NewProfileService(conf.Database.DB)
 	metricsService = services.NewMetricsService(conf.Database.DB)
+	gitService := services.NewGitService(conf.ProvidersDir + "/git-provider")
+	repositoryService = services.NewRepositoryService(conf.Database.DB, gitService)
+	instanceConfigService.SetGitService(gitService)
 	return &Router{
 		app:            app,
 		config:         conf,
@@ -86,6 +90,7 @@ func (r *Router) RegisterRoutes() {
 
 	// API routes
 	r.app.Register(r.versionRoute())
+	r.app.Register(r.infoRoute())
 	r.app.Register(r.healthRoutes()...)
 	r.app.Register(r.dashboardRoute())
 	r.app.Register(r.gatewayRoutes()...)
@@ -101,6 +106,7 @@ func (r *Router) RegisterRoutes() {
 	r.app.Register(r.auditRoutes()...)
 	r.app.Register(r.metricsRoutes()...)
 	r.app.Register(r.eventRoutes()...)
+	r.app.Register(r.repositoryRoutes()...)
 
 	// SPA serving
 	r.registerSPA()
@@ -113,6 +119,16 @@ func (r *Router) versionRoute() okapi.RouteDefinition {
 		Handler: commonService.Version,
 		Group:   &okapi.Group{Prefix: "/", Tags: []string{"System"}},
 		Summary: "Get application version",
+	}
+}
+
+func (r *Router) infoRoute() okapi.RouteDefinition {
+	return okapi.RouteDefinition{
+		Path:    "/info",
+		Method:  http.MethodGet,
+		Handler: commonService.Info,
+		Group:   &okapi.Group{Prefix: "/", Tags: []string{"System"}},
+		Summary: "Get application info",
 	}
 }
 

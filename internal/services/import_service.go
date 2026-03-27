@@ -14,7 +14,10 @@ import (
 	"gorm.io/gorm"
 )
 
-const fieldName = "name"
+const (
+	fieldName = "name"
+	fieldType = "type"
+)
 
 type ImportService struct {
 	routeRepo      *repository.RouteRepository
@@ -137,7 +140,7 @@ func (s *ImportService) ImportMiddlewares(c *okapi.Context) error {
 			continue
 		}
 
-		mwType, _ := raw["type"].(string)
+		mwType, _ := raw[fieldType].(string)
 		if mwType == "" {
 			result.Errors = append(result.Errors, fmt.Sprintf("middleware '%s': missing or empty 'type' field", name))
 			continue
@@ -146,7 +149,7 @@ func (s *ImportService) ImportMiddlewares(c *okapi.Context) error {
 		// Build config from all fields except "name" and "type"
 		config := make(models.JSONB, len(raw)-2)
 		for k, v := range raw {
-			if k == fieldName || k == "type" {
+			if k == fieldName || k == fieldType {
 				continue
 			}
 			config[k] = v
