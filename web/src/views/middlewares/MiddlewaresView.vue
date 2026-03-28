@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="flex-container">
     <div class="page-header">
       <h1>Middlewares</h1>
       <div class="page-header-actions">
@@ -42,7 +42,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="mw in middlewares" :key="mw.id">
+              <tr v-for="mw in middlewares" :key="mw.id" @click="$router.push(`/middlewares/${mw.id}`)" class="cursor-pointer">
                 <td>
                   <router-link :to="`/middlewares/${mw.id}`" class="cell-name-link">{{ mw.name }}</router-link>
                 </td>
@@ -50,8 +50,8 @@
                 <td class="cell-config truncate">{{ configPreview(mw.config) }}</td>
                 <td class="text-right">
                   <div style="display: flex; gap: 6px; justify-content: flex-end">
-                    <button class="btn btn-secondary btn-sm" @click="openEdit(mw)">Edit</button>
-                    <button class="btn btn-danger btn-sm" @click="confirmDelete(mw)">Delete</button>
+                    <button class="btn btn-secondary btn-sm" @click.stop="openEdit(mw)">Edit</button>
+                    <button class="btn btn-danger btn-sm" @click.stop="confirmDelete(mw)">Delete</button>
                   </div>
                 </td>
               </tr>
