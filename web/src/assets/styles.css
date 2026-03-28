@@ -409,11 +409,17 @@ option::checkmark {
 /* ====== Tables ====== */
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100vw;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 500px;
 }
 
 th {
@@ -441,6 +447,14 @@ tr {
 
 tr:hover td {
   background: var(--bg-hover);
+}
+
+th:first-child, td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--bg-primary);
+  z-index: 10;
+  box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.1);
 }
 
 /* ====== Badges ====== */
@@ -999,4 +1013,42 @@ tr:hover td {
 
 .code-editor-wrapper .cm-editor.cm-focused {
   outline: none;
+}
+
+/* medias queries */
+
+@media (max-width: 640px) {
+  .flex-container {
+    display: flex;
+    flex-direction: column;
+    width: 95%;
+    margin: 0 auto;
+    font-size: 1.2rem;
+  }
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .page-header-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .page-header-actions .btn {
+    flex: 1;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .page-header h1 {
+    font-size: 18px;
+  }
 }
