@@ -7,10 +7,11 @@ services:
       - "443:443"
     environment:
       GOMA_LOG_LEVEL: info
-      GOMA_EXTRA_CONFIG_DIR: /etc/goma/providers/default # Default instance
-      GOMA_EXTRA_CONFIG_WATCH: true
       GOMA_ENTRYPOINT_WEB_ADDRESS: :80
       GOMA_ENTRYPOINT_WEB_SECURE_ADDRESS: :443
+      GOMA_FILE_PROVIDER_ENABLED: true
+      GOMA_FILE_PROVIDER_WATCH: true
+      GOMA_FILE_PROVIDER_DIRECTORY: /etc/goma/providers/default # Default instance
     volumes:
       - ./data/providers:/etc/goma/providers
   goma-admin:
@@ -27,9 +28,6 @@ services:
     environment:
       GOMA_DB_URL: postgresql://goma:goma@goma-postgres:5432/goma?sslmode=disable
       GOMA_ENVIRONMENT: development
-      GOMA_WEB_DIR: /app/web/dist
-      GOMA_PROVIDERS_DIR: /etc/goma/providers
-      GOMA_DOCKER_ENABLED: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro # Required for Docker provider
       - ./data/providers:/etc/goma/providers
