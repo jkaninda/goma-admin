@@ -49,7 +49,7 @@
           <span class="stat-value">{{ data.middlewares }}</span>
         </router-link>
 
-        <div class="stat-card">
+        <router-link to="/users" class="stat-card stat-card-link">
           <div class="stat-header">
             <span class="stat-label">Users</span>
             <span class="stat-icon stat-icon-danger">
@@ -59,7 +59,8 @@
             </span>
           </div>
           <span class="stat-value">{{ data.users }}</span>
-        </div>
+        </router-link>
+      
       </div>
 
       <div class="dashboard-panels">
