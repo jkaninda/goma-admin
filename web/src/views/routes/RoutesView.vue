@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="flex-container">
     <div class="page-header">
       <h1>Routes</h1>
       <div class="page-header-actions">
