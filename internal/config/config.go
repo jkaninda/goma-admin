@@ -49,7 +49,7 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 			Level: goutils.Env("GOMA_LOG_LEVEL", "info"),
 		},
 		Docker: DockerConfig{
-			Enabled:      goutils.EnvBool("GOMA_DOCKER_ENABLED", false),
+			Enabled:      goutils.EnvBool("GOMA_DOCKER_ENABLED", true),
 			DockerHost:   goutils.Env("GOMA_DOCKER_HOST", "unix:///var/run/docker.sock"),
 			PollInterval: parseDuration(goutils.Env("GOMA_DOCKER_POLL_INTERVAL", "10s"), 10*time.Second),
 			EnableSwarm:  goutils.EnvBool("GOMA_DOCKER_ENABLE_SWARM", false),
