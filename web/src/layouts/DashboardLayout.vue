@@ -1015,8 +1015,13 @@ onUnmounted(() => {
 
 @media (max-width: 640px) {
   .main-content {
-    padding: 20px 16px;
-  }
+  padding: 20px 16px;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
+}
 
   .topbar {
     padding: 0 16px;
