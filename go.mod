@@ -4,11 +4,12 @@ go 1.26.1
 
 require (
 	github.com/docker/docker v28.5.2+incompatible
+	github.com/go-git/go-git/v5 v5.17.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
-	github.com/jkaninda/okapi v0.5.1
+	github.com/jkaninda/okapi v0.5.2
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.49.0
 	golang.org/x/oauth2 v0.36.0
@@ -35,7 +36,6 @@ require (
 	github.com/getkin/kin-openapi v0.134.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.8.0 // indirect
-	github.com/go-git/go-git/v5 v5.17.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
