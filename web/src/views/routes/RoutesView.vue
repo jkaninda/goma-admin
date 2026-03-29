@@ -62,8 +62,9 @@
                   {{ route.config?.target || '-' }}
                 </td>
                 <td>
-                  <span :class="['badge', route.config?.enabled ? 'badge-success' : 'badge-neutral']">
-                    {{ route.config?.enabled ? 'enabled' : 'disabled' }}
+                  <span :class="['status-indicator', route.config?.enabled ? 'status-online' : 'status-offline']">
+                    <span class="status-dot"></span>
+                    {{ route.config?.enabled ? 'Online' : 'Offline' }}
                   </span>
                 </td>
                 <td class="text-right">
@@ -112,7 +113,7 @@
             <input v-model="simpleForm.target" class="form-input" placeholder="http://backend:8080" />
           </div>
           <div class="form-group">
-            <label class="form-label">Hosts <span class="form-hint-inline">(optional, comma-separated)</span></label>
+            <label class="form-label">Hosts <span class="form-hint-inline">(comma-separated)</span></label>
             <input v-model="simpleForm.hosts" class="form-input" placeholder="api.example.com, api2.example.com" />
           </div>
           <div class="form-group">
@@ -138,6 +139,12 @@
 
         <!-- Advanced mode -->
         <template v-else>
+          <div class="form-warning">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86l-8.6 14.86A1 1 0 0 0 2.54 20h18.92a1 1 0 0 0 .85-1.28l-8.6-14.86a1 1 0 0 0-1.42 0z" />
+            </svg>
+            <span>Enter advanced configuration at your own risk!</span>
+          </div>
           <div class="form-group">
             <label class="form-label">Configuration (YAML)</label>
             <CodeEditor
@@ -484,6 +491,10 @@ async function handleSubmit() {
       yamlError.value = 'Target is required.'
       return
     }
+    if (!simpleForm.value.hosts.trim()) {
+      yamlError.value = 'Hosts is required.'
+      return
+    }
     config = simpleFormToConfig()
   } else {
     try {
@@ -646,6 +657,57 @@ onMounted(fetchRoutes)
   margin-bottom: 2px;
 }
 
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-online {
+  color: var(--success-600);
+  background: var(--success-50);
+}
+
+.status-online .status-dot {
+  background: var(--success-500);
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  animation: pulse-green 2s infinite;
+}
+
+.status-offline {
+  color: var(--danger-500);
+  background: var(--danger-50);
+}
+
+.status-offline .status-dot {
+  background: var(--danger-500);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
 .action-delete {
   color: var(--danger-500);
 }
@@ -655,6 +717,26 @@ onMounted(fetchRoutes)
 
 .yaml-error {
   margin-top: 8px;
+}
+
+.form-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--warning-50, #fffbeb);
+  border: 1px solid var(--warning-300, #fcd34d);
+  border-radius: 6px;
+  color: var(--warning-800, #92400e);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.form-warning svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--warning-500, #f59e0b);
 }
 
 .mode-tabs {

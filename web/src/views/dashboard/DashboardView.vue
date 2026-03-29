@@ -705,10 +705,42 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.dot-active { background: var(--success-500); }
-.dot-inactive { background: var(--text-muted); }
-.dot-unhealthy { background: var(--danger-500); }
-.dot-unknown { background: var(--warning-500); }
+.dot-active {
+  background: var(--success-500);
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  animation: pulse-green 2s infinite;
+}
+.dot-inactive {
+  background: var(--text-muted);
+}
+.dot-unhealthy {
+  background: var(--danger-500);
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: pulse-red 2s infinite;
+}
+.dot-unknown {
+  background: var(--warning-500);
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+  animation: pulse-warning 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@keyframes pulse-warning {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
 
 .instance-name {
   font-size: 14px;

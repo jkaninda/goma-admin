@@ -16,10 +16,79 @@
       </div>
 
       <div class="detail-cards">
+        <!-- Core Configuration -->
         <div class="card">
-          <div class="card-header"><h2>Configuration</h2></div>
+          <div class="card-header"><h2>Route Configuration</h2></div>
           <div class="card-body">
-            <pre class="code-block">{{ formatConfig(route.config) }}</pre>
+            <dl class="detail-grid">
+              <div class="detail-row">
+                <dt>Path</dt>
+                <dd class="text-mono">{{ config.path || '-' }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Target</dt>
+                <dd class="text-mono">{{ config.target || '-' }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Hosts</dt>
+                <dd>
+                  <template v-if="hostsList.length">
+                    <span v-for="h in hostsList" :key="h" class="badge badge-info detail-badge">{{ h }}</span>
+                  </template>
+                  <span v-else class="text-muted">None</span>
+                </dd>
+              </div>
+              <div class="detail-row">
+                <dt>Methods</dt>
+                <dd>
+                  <template v-if="methodsList.length">
+                    <span v-for="m in methodsList" :key="m" class="badge badge-info detail-badge">{{ m }}</span>
+                  </template>
+                  <span v-else class="text-muted">All</span>
+                </dd>
+              </div>
+              <div class="detail-row">
+                <dt>Rewrite</dt>
+                <dd class="text-mono">{{ config.rewrite || '-' }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Status</dt>
+                <dd>
+                  <span :class="['badge', config.enabled !== false ? 'badge-success' : 'badge-neutral']">
+                    {{ config.enabled !== false ? 'Enabled' : 'Disabled' }}
+                  </span>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <!-- Advanced Configuration (only if extra fields exist) -->
+        <div v-if="hasAdvancedFields" class="card">
+          <div class="card-header"><h2>Advanced Configuration</h2></div>
+          <div class="card-body">
+            <pre class="code-block">{{ formatAdvancedConfig() }}</pre>
+          </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="card">
+          <div class="card-header"><h2>Metadata</h2></div>
+          <div class="card-body">
+            <dl class="detail-grid">
+              <div class="detail-row">
+                <dt>Route ID</dt>
+                <dd class="text-mono">{{ route.id }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Created</dt>
+                <dd>{{ formatDate(route.createdAt) }}</dd>
+              </div>
+              <div class="detail-row">
+                <dt>Last Updated</dt>
+                <dd>{{ formatDate(route.updatedAt) }}</dd>
+              </div>
+            </dl>
           </div>
         </div>
       </div>
@@ -28,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { routesApi, type Route } from '@/api/routes'
 
 const props = defineProps<{ id: string }>()
@@ -36,10 +105,36 @@ const props = defineProps<{ id: string }>()
 const loading = ref(true)
 const route = ref<Route | null>(null)
 
-function formatConfig(config: Record<string, unknown>): string {
-  if (!config) return ''
+const simpleFieldKeys = new Set(['path', 'target', 'hosts', 'methods', 'rewrite', 'enabled'])
+
+const config = computed(() => route.value?.config || {})
+
+const hostsList = computed(() => {
+  const hosts = config.value.hosts
+  return Array.isArray(hosts) ? hosts.map(String) : []
+})
+
+const methodsList = computed(() => {
+  const methods = config.value.methods
+  return Array.isArray(methods) ? methods.map(String) : []
+})
+
+const advancedFields = computed(() => {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(config.value)) {
+    if (!simpleFieldKeys.has(key)) {
+      result[key] = value
+    }
+  }
+  return result
+})
+
+const hasAdvancedFields = computed(() => Object.keys(advancedFields.value).length > 0)
+
+function formatAdvancedConfig(): string {
+  const obj = advancedFields.value
   const lines: string[] = []
-  for (const [key, value] of Object.entries(config)) {
+  for (const [key, value] of Object.entries(obj)) {
     if (value === undefined || value === null) continue
     if (Array.isArray(value)) {
       lines.push(`${key}:`)
@@ -60,6 +155,18 @@ function formatConfig(config: Record<string, unknown>): string {
     }
   }
   return lines.join('\n')
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 onMounted(async () => {
@@ -95,6 +202,58 @@ onMounted(async () => {
 }
 .back-link:hover { color: var(--text-secondary); }
 .detail-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   max-width: 800px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin: 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row dt {
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-row dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.detail-badge {
+  margin-right: 4px;
+  margin-bottom: 2px;
+}
+
+.text-mono {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-style: italic;
 }
 </style>
