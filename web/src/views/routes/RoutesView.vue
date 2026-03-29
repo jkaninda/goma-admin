@@ -663,6 +663,8 @@ onMounted(fetchRoutes)
   gap: 6px;
   font-size: 13px;
   font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 9999px;
 }
 
 .status-dot {
@@ -674,6 +676,7 @@ onMounted(fetchRoutes)
 
 .status-online {
   color: var(--success-600);
+  background: var(--success-50);
 }
 
 .status-online .status-dot {
@@ -684,6 +687,7 @@ onMounted(fetchRoutes)
 
 .status-offline {
   color: var(--danger-500);
+  background: var(--danger-50);
 }
 
 .status-offline .status-dot {
