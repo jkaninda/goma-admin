@@ -44,7 +44,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="route in routes" :key="route.id">
+              <tr v-for="route in routes" :key="route.id" class="cursor-pointer"
+              @click="$router.push(`/routes/${route.id}`)">
                 <td>
                   <router-link :to="`/routes/${route.id}`" class="cell-name-link">
                     {{ route.name }}
@@ -69,8 +70,8 @@
                 </td>
                 <td class="text-right">
                   <div style="display: flex; gap: 6px; justify-content: flex-end">
-                    <button class="btn btn-secondary btn-sm" @click="openEdit(route)">Edit</button>
-                    <button class="btn btn-danger btn-sm" @click="confirmDelete(route)">Delete</button>
+                    <button class="btn btn-secondary btn-sm" @click.stop="openEdit(route)">Edit</button>
+                    <button class="btn btn-danger btn-sm" @click.stop="confirmDelete(route)">Delete</button>
                   </div>
                 </td>
               </tr>
