@@ -37,6 +37,15 @@ func parseBoolFromMap(labels map[string]string, key string, defaultValue bool) b
 	return defaultValue
 }
 
+func hasSecurityLabels(labels map[string]string, prefix string) bool {
+	for key := range labels {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func parseList(value string) []string {
 	items := strings.Split(value, ",")
 	result := make([]string, 0, len(items))
