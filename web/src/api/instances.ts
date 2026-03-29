@@ -27,7 +27,7 @@ export interface Instance {
   createdAt: string
   updatedAt: string
   routes?: Route[]
-  middlewares?: []
+  middlewares?: { id: number; name: string; type: string }[]
 }
 
 export interface Route {
