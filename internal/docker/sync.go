@@ -350,7 +350,7 @@ func parseRouteFields(route *Route, labels map[string]string) {
 	}
 
 	if hcPath := labels["health_check.path"]; hcPath != "" {
-		route.HealthCheck = RouteHealthCheck{
+		route.HealthCheck = &RouteHealthCheck{
 			Path:     hcPath,
 			Interval: getRouteLabel(labels, "health_check.interval", "30s"),
 			Timeout:  getRouteLabel(labels, "health_check.timeout", "5s"),
@@ -361,12 +361,14 @@ func parseRouteFields(route *Route, labels map[string]string) {
 		}
 	}
 
-	route.Security = Security{
-		ForwardHostHeaders:      parseBoolFromMap(labels, "security.forward_host_headers", true),
-		EnableExploitProtection: parseBoolFromMap(labels, "security.enable_exploit_protection", false),
-		TLS: SecurityTLS{
-			InsecureSkipVerify: parseBoolFromMap(labels, "security.tls.insecure_skip_verify", false),
-		},
+	if hasSecurityLabels(labels, "security.") {
+		route.Security = &Security{
+			ForwardHostHeaders:      parseBoolFromMap(labels, "security.forward_host_headers", true),
+			EnableExploitProtection: parseBoolFromMap(labels, "security.enable_exploit_protection", false),
+			TLS: SecurityTLS{
+				InsecureSkipVerify: parseBoolFromMap(labels, "security.tls.insecure_skip_verify", false),
+			},
+		}
 	}
 
 	route.DisableMetrics = parseBoolFromMap(labels, "disable_metrics", false)
@@ -396,7 +398,7 @@ func parseRouteLabels(route *Route, labels map[string]string) {
 	}
 
 	if hcPath := labels["goma.health_check.path"]; hcPath != "" {
-		route.HealthCheck = RouteHealthCheck{
+		route.HealthCheck = &RouteHealthCheck{
 			Path:     hcPath,
 			Interval: getLabel(labels, "goma.health_check.interval", "30s"),
 			Timeout:  getLabel(labels, "goma.health_check.timeout", "5s"),
@@ -407,12 +409,14 @@ func parseRouteLabels(route *Route, labels map[string]string) {
 		}
 	}
 
-	route.Security = Security{
-		ForwardHostHeaders:      parseBool(labels, "goma.security.forward_host_headers", true),
-		EnableExploitProtection: parseBool(labels, "goma.security.enable_exploit_protection", false),
-		TLS: SecurityTLS{
-			InsecureSkipVerify: parseBool(labels, "goma.security.tls.insecure_skip_verify", false),
-		},
+	if hasSecurityLabels(labels, "goma.security.") {
+		route.Security = &Security{
+			ForwardHostHeaders:      parseBool(labels, "goma.security.forward_host_headers", true),
+			EnableExploitProtection: parseBool(labels, "goma.security.enable_exploit_protection", false),
+			TLS: SecurityTLS{
+				InsecureSkipVerify: parseBool(labels, "goma.security.tls.insecure_skip_verify", false),
+			},
+		}
 	}
 
 	route.DisableMetrics = parseBool(labels, "goma.disable_metrics", false)
