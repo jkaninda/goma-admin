@@ -241,10 +241,11 @@ func (s *OAuthService) Callback(c *okapi.Context, input *dto.OAuthCallbackReques
 		ExpiresAt:   expirationTime.Unix(),
 		TokenType:   "Bearer",
 		User: dto.UserResponse{
-			ID:    user.ID.String(),
-			Email: user.Email,
-			Name:  user.Name,
-			Roles: user.Role,
+			ID:            user.ID.String(),
+			Email:         user.Email,
+			Name:          user.Name,
+			Roles:         user.Role,
+			OAuthProvider: user.OAuthProvider,
 		},
 		NewUser: isNew,
 	})

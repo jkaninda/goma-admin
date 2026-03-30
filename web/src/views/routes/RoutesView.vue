@@ -115,6 +115,11 @@
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          :pageable="pageable"
+          @page="goToPage"
+        />
       </div>
     </template>
 
@@ -198,7 +203,7 @@
                   v-model="hostInput"
                   class="host-input-field"
                   type="text"
-                  placeholder="goma.localhost, api.goma-admin.com"
+                  placeholder="api.example.com, api2.example.com"
                   @input="handleHostInput"
                   @keydown="handleHostInputKeydown"
                   @blur="handleHostInputBlur"
@@ -208,7 +213,7 @@
 
             <p class="form-hint">Use Enter, Space, or Comma to add a host</p>
             <p class="form-tip">
-              Tip: Type "api.localhost" then press comma to add quickly
+              Tip: Type "api.example.com" then press comma to add quickly
             </p>
           </div>
 
@@ -223,6 +228,23 @@
                 {{ m }}
               </label>
             </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label"
+              >Middlewares <span class="form-hint-inline">(optional)</span></label
+            >
+            <div v-if="availableMiddlewares.length" class="middleware-select">
+              <label
+                v-for="mw in availableMiddlewares"
+                :key="mw.id"
+                class="checkbox-label middleware-option"
+              >
+                <input type="checkbox" :value="mw.name" v-model="simpleForm.middlewares" />
+                <span class="middleware-option-name">{{ mw.name }}</span>
+                <span class="badge badge-info middleware-option-type">{{ mw.type }}</span>
+              </label>
+            </div>
+            <p v-else class="form-hint">No middlewares available. Create middlewares first.</p>
           </div>
           <div class="form-group">
             <label class="form-label"
@@ -348,9 +370,11 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { routesApi, type Route, type RouteCreateRequest, type ImportResult } from '@/api/routes'
+import { middlewaresApi, type Middleware } from '@/api/middlewares'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
 import Modal from '@/components/Modal.vue'
+import Pagination from '@/components/Pagination.vue'
 import CodeEditor from '@/components/CodeEditor.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
@@ -360,6 +384,8 @@ const notify = useNotificationStore()
 /* ── State ── */
 const loading = ref(true)
 const saving = ref(false)
+const page = ref(0)
+const pageable = ref({ current_page: 0, total_pages: 1, total_elements: 0, size: 20, empty: true })
 const routes = ref<Route[]>([])
 const modalOpen = ref(false)
 const editing = ref<Route | null>(null)
@@ -371,11 +397,14 @@ const formMode = ref<'simple' | 'advanced'>('simple')
 
 const allMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
 
+const availableMiddlewares = ref<Middleware[]>([])
+
 const simpleForm = ref({
   path: '/',
   target: '',
   hosts: '',
   methods: [] as string[],
+  middlewares: [] as string[],
   rewrite: '',
   enabled: true,
 })
@@ -384,6 +413,7 @@ let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   searchDebounceTimer = setTimeout(() => {
+    page.value = 0
     fetchRoutes()
   }, 300)
 })
@@ -414,7 +444,19 @@ function objectToYaml(obj: Record<string, unknown>): string {
       if (value.length === 0) continue
       lines.push(`${key}:`)
       for (const item of value) {
-        lines.push(`  - ${item}`)
+        if (item && typeof item === 'object') {
+          const entries = Object.entries(item as Record<string, unknown>)
+          if (entries.length > 0) {
+            const [firstKey, firstVal] = entries[0]
+            lines.push(`  - ${firstKey}: ${JSON.stringify(firstVal)}`)
+            for (let j = 1; j < entries.length; j++) {
+              const [k, v] = entries[j]
+              lines.push(`    ${k}: ${JSON.stringify(v)}`)
+            }
+          }
+        } else {
+          lines.push(`  - ${item}`)
+        }
       }
     } else if (typeof value === 'object') {
       lines.push(`${key}:`)
@@ -447,9 +489,18 @@ function yamlToObject(yamlStr: string): Record<string, unknown> {
   let isCollectingObject = false
   let collectedArray: unknown[] = []
   let collectedObject: Record<string, unknown> = {}
+  let currentArrayItem: Record<string, unknown> | null = null
+
+  function flushArrayItem() {
+    if (currentArrayItem && Object.keys(currentArrayItem).length > 0) {
+      collectedArray.push(currentArrayItem)
+      currentArrayItem = null
+    }
+  }
 
   function flush() {
     if (!currentKey) return
+    flushArrayItem()
     if (isCollectingArray && collectedArray.length > 0) {
       obj[currentKey] = collectedArray
     } else if (isCollectingObject && Object.keys(collectedObject).length > 0) {
@@ -466,11 +517,31 @@ function yamlToObject(yamlStr: string): Record<string, unknown> {
     if (!line || line.startsWith('#')) continue
 
     if (/^\s+/.test(line) && currentKey) {
+      // Array item: "  - value" or "  - key: value"
       const arrayMatch = line.match(/^\s+-\s+(.*)$/)
       if (arrayMatch) {
+        flushArrayItem()
         isCollectingArray = true
-        collectedArray.push(parseValue(arrayMatch[1].trim()))
+        const rest = arrayMatch[1].trim()
+        // Check if it's "- key: value" (object item)
+        const kvInArray = rest.match(/^(\w[\w-]*):\s*(.*)$/)
+        if (kvInArray) {
+          currentArrayItem = {}
+          const val = kvInArray[2].trim()
+          currentArrayItem[kvInArray[1]] = val === '' ? null : parseValue(val)
+        } else {
+          collectedArray.push(parseValue(rest))
+        }
         continue
+      }
+      // Continuation of array object item: "    key: value"
+      if (currentArrayItem) {
+        const contMatch = line.match(/^\s{4,}(\w[\w-]*):\s*(.*)$/)
+        if (contMatch) {
+          const val = contMatch[2].trim()
+          currentArrayItem[contMatch[1]] = val === '' ? null : parseValue(val)
+          continue
+        }
       }
       const nestedMatch = line.match(/^\s+(\w[\w-]*):\s*(.*)$/)
       if (nestedMatch) {
@@ -507,7 +578,7 @@ methods:
 enabled: true`
 
 /* ── Simple ↔ Advanced mode switching ── */
-const simpleFieldKeys = new Set(['path', 'target', 'hosts', 'methods', 'rewrite', 'enabled'])
+const simpleFieldKeys = new Set(['path', 'target', 'hosts', 'methods', 'middlewares', 'rewrite', 'enabled'])
 
 function hasAdvancedFields(config: Record<string, unknown>): boolean {
   return Object.keys(config).some(k => !simpleFieldKeys.has(k))
@@ -525,6 +596,7 @@ function simpleFormToConfig(): Record<string, unknown> {
     .filter(Boolean)
   if (hosts.length) config.hosts = hosts
   if (simpleForm.value.methods.length) config.methods = [...simpleForm.value.methods]
+  if (simpleForm.value.middlewares.length) config.middlewares = [...simpleForm.value.middlewares]
   if (simpleForm.value.rewrite) config.rewrite = simpleForm.value.rewrite
   return config
 }
@@ -536,12 +608,14 @@ function configToSimpleForm(config: Record<string, unknown>) {
   simpleForm.value.hosts = Array.isArray(hosts) ? hosts.join(', ') : ''
   const methods = config.methods
   simpleForm.value.methods = Array.isArray(methods) ? methods.map(String) : []
+  const mws = config.middlewares
+  simpleForm.value.middlewares = Array.isArray(mws) ? mws.map(String) : []
   simpleForm.value.rewrite = (config.rewrite as string) || ''
   simpleForm.value.enabled = config.enabled !== false
 }
 
 function resetSimpleForm() {
-  simpleForm.value = { path: '/', target: '', hosts: '', methods: [], rewrite: '', enabled: true }
+  simpleForm.value = { path: '/', target: '', hosts: '', methods: [], middlewares: [], rewrite: '', enabled: true }
 }
 
 function switchMode(mode: 'simple' | 'advanced') {
@@ -643,6 +717,14 @@ const handleRemoveHost = (host: string, e: Event) => {
   removeHost(host);
 };
 
+/* ── Middleware list for simple mode ── */
+async function fetchAvailableMiddlewares() {
+  try {
+    const res = await middlewaresApi.list(0, 100)
+    availableMiddlewares.value = res.data.data || []
+  } catch { /* non-critical */ }
+}
+
 /* ── Modal open / close ── */
 function openCreate() {
   editing.value = null
@@ -652,6 +734,7 @@ function openCreate() {
   yamlContent.value = defaultYaml
   yamlError.value = ''
   modalOpen.value = true
+  fetchAvailableMiddlewares()
 }
 
 function openEdit(route: Route) {
@@ -669,6 +752,7 @@ function openEdit(route: Route) {
     yamlContent.value = objectToYaml(config)
   }
   modalOpen.value = true
+  fetchAvailableMiddlewares()
 }
 
 function closeModal() {
@@ -816,11 +900,17 @@ async function handleImport() {
 }
 
 /* ── Fetch ── */
+function goToPage(p: number) {
+  page.value = p
+  fetchRoutes()
+}
+
 async function fetchRoutes() {
   loading.value = true
   try {
-    const res = await routesApi.list(0, 20, search.value)
+    const res = await routesApi.list(page.value, 20, search.value)
     routes.value = res.data.data || []
+    pageable.value = res.data.pageable
   } catch {
     // Error handled by API interceptor
   } finally {
@@ -968,6 +1058,36 @@ onMounted(fetchRoutes)
   display: flex;
   flex-wrap: wrap;
   gap: 10px 18px;
+}
+
+.middleware-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+.middleware-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.middleware-option:hover {
+  background: var(--bg-tertiary);
+}
+.middleware-option-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.middleware-option-type {
+  font-size: 10px;
+  margin-left: auto;
 }
 
 .toggle-row {

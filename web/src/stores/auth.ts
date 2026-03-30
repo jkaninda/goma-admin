@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'))
   const loading = ref(false)
   const error = ref('')
+  const requires2FA = ref(false)
 
   const isAuthenticated = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'superadmin')
@@ -25,10 +26,16 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await authApi.login(data)
       setSession(res.data.access_token, res.data.user)
+      requires2FA.value = false
       router.push('/')
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } }
-      error.value = axiosErr.response?.data?.message || 'Login failed'
+      const axiosErr = err as { response?: { data?: { message?: string; requires_2fa?: boolean } } }
+      if (axiosErr.response?.data?.requires_2fa) {
+        requires2FA.value = true
+        error.value = ''
+      } else {
+        error.value = axiosErr.response?.data?.message || 'Login failed'
+      }
       throw err
     } finally {
       loading.value = false
@@ -55,5 +62,5 @@ export const useAuthStore = defineStore('auth', () => {
     router.push('/auth/login')
   }
 
-  return { token, user, loading, error, isAuthenticated, isAdmin, login, loginWithOAuth, logout }
+  return { token, user, loading, error, requires2FA, isAuthenticated, isAdmin, login, loginWithOAuth, logout }
 })

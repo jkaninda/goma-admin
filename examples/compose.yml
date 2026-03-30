@@ -44,14 +44,18 @@ services:
     image: jkaninda/goma-admin:latest
     container_name: goma-admin
     restart: unless-stopped
+    labels:
+      - "goma.enable=false"
+      - "goma.port=9000"
+      - "goma.hosts=goma-admin.example.com"
     ports:
       - "${GOMA_PORT:-9000}:9000"
     env_file:
       - .env
     volumes:
       - providers:/etc/goma/providers
-      # Uncomment to enable the Docker provider (auto-discover routes from labels)
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Comment to disable the Docker provider (auto-discover routes from labels)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       goma-postgres:
         condition: service_healthy

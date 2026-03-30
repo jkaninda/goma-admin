@@ -18,8 +18,10 @@ type User struct {
 	EmailVerified bool           `gorm:"default:false;index" json:"emailVerified" yaml:"emailVerified"`
 	Active        bool           `gorm:"default:true;index" json:"active" yaml:"active"`
 	OAuthProvider string         `gorm:"size:50;index" json:"oauthProvider,omitempty" yaml:"oauthProvider,omitempty"` // google, github, or empty for local
-	OAuthID       string         `gorm:"size:255;index" json:"-" yaml:"-"`                                            // Provider-specific user ID
-	LastLoginAt   *time.Time     `json:"lastLoginAt,omitempty" yaml:"lastLoginAt,omitempty"`
+	OAuthID          string         `gorm:"size:255;index" json:"-" yaml:"-"`                                            // Provider-specific user ID
+	TwoFactorSecret  string         `gorm:"type:text" json:"-" yaml:"-"`
+	TwoFactorEnabled bool           `gorm:"default:false" json:"twoFactorEnabled" yaml:"twoFactorEnabled"`
+	LastLoginAt      *time.Time     `json:"lastLoginAt,omitempty" yaml:"lastLoginAt,omitempty"`
 	LastLoginIP   string         `gorm:"size:45" json:"lastLoginIp,omitempty" yaml:"lastLoginIp,omitempty"`
 	FailedLogins  int            `gorm:"default:0" json:"-" yaml:"-"`
 	LockedUntil   *time.Time     `json:"lockedUntil,omitempty" yaml:"lockedUntil,omitempty"`

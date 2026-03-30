@@ -1,12 +1,14 @@
 package services
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jkaninda/goma-admin/internal/config"
 	"github.com/jkaninda/goma-admin/internal/dto"
 	"github.com/jkaninda/goma-admin/internal/repository"
+	"github.com/jkaninda/goma-admin/internal/services/twofactor"
 	"github.com/jkaninda/okapi"
 )
 
@@ -40,6 +42,19 @@ func (s *AuthService) Login(c *okapi.Context, input *dto.LoginRequest) error {
 		return c.AbortUnauthorized("Account is disabled")
 	}
 
+	// 2FA check
+	if user.TwoFactorEnabled {
+		if input.Body.TwoFactorCode == "" {
+			return c.JSON(http.StatusUnauthorized, okapi.M{
+				"requires_2fa": true,
+				"message":      "2FA code required",
+			})
+		}
+		if !twofactor.ValidateCode(user.TwoFactorSecret, input.Body.TwoFactorCode) {
+			return c.AbortUnauthorized("Invalid 2FA code")
+		}
+	}
+
 	_ = s.userRepo.UpdateLastLogin(c.Request().Context(), user.ID, c.Request().RemoteAddr)
 
 	expirationTime := time.Now().Add(24 * time.Hour)
@@ -68,10 +83,12 @@ func (s *AuthService) Login(c *okapi.Context, input *dto.LoginRequest) error {
 		ExpiresAt:   expirationTime.Unix(),
 		TokenType:   "Bearer",
 		User: dto.UserResponse{
-			ID:    user.ID.String(),
-			Email: user.Email,
-			Name:  user.Name,
-			Roles: user.Role,
+			ID:               user.ID.String(),
+			Email:            user.Email,
+			Name:             user.Name,
+			Roles:            user.Role,
+			TwoFactorEnabled: user.TwoFactorEnabled,
+			OAuthProvider:    user.OAuthProvider,
 		},
 	})
 }

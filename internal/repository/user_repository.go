@@ -161,3 +161,13 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 	err := r.db.WithContext(ctx).Model(&models.User{}).Count(&count).Error
 	return count, err
 }
+
+func (r *UserRepository) UpdateTwoFactor(ctx context.Context, userID uuid.UUID, secret string, enabled bool) error {
+	return r.db.WithContext(ctx).
+		Model(&models.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"two_factor_secret":  secret,
+			"two_factor_enabled": enabled,
+		}).Error
+}

@@ -4,6 +4,7 @@ export interface LoginRequest {
   email: string
   password: string
   remember_me: boolean
+  two_factor_code?: string
 }
 
 export interface AuthResponse {

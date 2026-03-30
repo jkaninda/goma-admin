@@ -26,3 +26,10 @@ type MiddlewareByIDRq struct {
 type SearchMiddlewareRq struct {
 	Query string `query:"q" required:"true" description:"Search query"`
 }
+
+type MiddlewareTypeInfo struct {
+	Type        string `json:"type" description:"Middleware type key used in config"`
+	Name        string `json:"name" description:"Human-readable name"`
+	Description string `json:"description" description:"What this middleware does"`
+	Category    string `json:"category" description:"Category: auth, security, traffic, transform, performance, observability"`
+}

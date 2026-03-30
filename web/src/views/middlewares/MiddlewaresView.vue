@@ -46,7 +46,7 @@
                 <td>
                   <router-link :to="`/middlewares/${mw.id}`" class="cell-name-link">{{ mw.name }}</router-link>
                 </td>
-                <td><span class="badge badge-info">{{ mw.type }}</span></td>
+                <td><span :class="['badge', typeBadge(mw.type)]">{{ mw.type }}</span></td>
                 <td class="cell-config truncate">{{ configPreview(mw.config) }}</td>
                 <td class="text-right">
                   <div style="display: flex; gap: 6px; justify-content: flex-end">
@@ -61,6 +61,11 @@
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          :pageable="pageable"
+          @page="goToPage"
+        />
       </div>
     </template>
 
@@ -153,12 +158,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
-import { middlewaresApi, type Middleware, type MiddlewareCreateRequest, type ImportResult } from '@/api/middlewares'
+import { middlewaresApi, type Middleware, type MiddlewareCreateRequest, type MiddlewareTypeInfo, type ImportResult } from '@/api/middlewares'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
 import Modal from '@/components/Modal.vue'
 import CodeEditor from '@/components/CodeEditor.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import Pagination from '@/components/Pagination.vue'
 
 const { confirm } = useConfirm()
 const notify = useNotificationStore()
@@ -167,6 +173,8 @@ const notify = useNotificationStore()
 const loading = ref(true)
 const saving = ref(false)
 const middlewares = ref<Middleware[]>([])
+const page = ref(0)
+const pageable = ref({ current_page: 0, total_pages: 1, total_elements: 0, size: 20, empty: true })
 const modalOpen = ref(false)
 const editing = ref<Middleware | null>(null)
 const editingId = ref<number | null>(null)
@@ -178,6 +186,7 @@ let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   searchDebounceTimer = setTimeout(() => {
+    page.value = 0
     fetchMiddlewares()
   }, 300)
 })
@@ -426,6 +435,21 @@ function findNextNonEmpty(lines: string[], start: number): number {
   return -1
 }
 
+/* ── Type badge ── */
+const typesCatalog = ref<MiddlewareTypeInfo[]>([])
+const categoryBadgeMap: Record<string, string> = {
+  auth: 'badge-danger',
+  security: 'badge-danger',
+  traffic: 'badge-warning',
+  transform: 'badge-info',
+  performance: 'badge-success',
+  observability: 'badge-neutral',
+}
+function typeBadge(type: string): string {
+  const info = typesCatalog.value.find(t => t.type === type)
+  return info ? (categoryBadgeMap[info.category] || 'badge-info') : 'badge-info'
+}
+
 /* ── Config preview for table ── */
 function configPreview(config: Record<string, unknown>): string {
   if (!config || typeof config !== 'object') return '-'
@@ -619,11 +643,17 @@ async function handleImport() {
 }
 
 /* ── Fetch ── */
+function goToPage(p: number) {
+  page.value = p
+  fetchMiddlewares()
+}
+
 async function fetchMiddlewares() {
   loading.value = true
   try {
-    const res = await middlewaresApi.list(0, 20, search.value)
+    const res = await middlewaresApi.list(page.value, 20, search.value)
     middlewares.value = res.data.data || []
+    pageable.value = res.data.pageable
   } catch {
     // Error handled by API interceptor
   } finally {
@@ -631,7 +661,10 @@ async function fetchMiddlewares() {
   }
 }
 
-onMounted(fetchMiddlewares)
+onMounted(() => {
+  fetchMiddlewares()
+  middlewaresApi.types().then(res => { typesCatalog.value = res.data || [] }).catch(() => {})
+})
 </script>
 
 <style scoped>

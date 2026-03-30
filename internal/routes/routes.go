@@ -230,6 +230,15 @@ func (r *Router) middlewareRoutes() []okapi.RouteDefinition {
 			Options:  []okapi.RouteOption{okapi.DocBearerAuth()},
 		},
 		{
+			Path: "/types", Method: http.MethodGet, Group: group,
+			Handler: middlewareService.Types,
+			Summary: "List supported middleware types",
+			Options: []okapi.RouteOption{
+				okapi.DocBearerAuth(),
+				okapi.DocResponse(&[]dto.MiddlewareTypeInfo{}),
+			},
+		},
+		{
 			Path: "/search", Method: http.MethodGet, Group: group,
 			Handler:  okapi.H(middlewareService.Search),
 			Summary:  "Search middlewares",
@@ -268,11 +277,13 @@ func (r *Router) middlewareRoutes() []okapi.RouteDefinition {
 		},
 		{
 			Path: "/:id/usage", Method: http.MethodGet, Group: group,
-			Handler:  okapi.H(middlewareService.Usage),
-			Summary:  "Get routes using this middleware",
-			Request:  &dto.MiddlewareByIDRq{},
-			Response: &models.Route{},
-			Options:  []okapi.RouteOption{okapi.DocBearerAuth()},
+			Handler: okapi.H(middlewareService.Usage),
+			Summary: "Get routes using this middleware",
+			Request: &dto.MiddlewareByIDRq{},
+			Options: []okapi.RouteOption{
+				okapi.DocBearerAuth(),
+				okapi.DocResponse(&[]models.Route{}),
+			},
 		},
 	}
 }
