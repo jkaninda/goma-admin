@@ -33,7 +33,7 @@
                 <dt>Hosts</dt>
                 <dd>
                   <template v-if="hostsList.length">
-                    <span v-for="h in hostsList" :key="h" class="badge badge-info detail-badge">{{ h }}</span>
+                    <a v-for="h in hostsList" :key="h" :href="`http://${h}`" target="_blank" class="badge badge-info detail-badge">{{ h }}</a>
                   </template>
                   <span v-else class="text-muted">None</span>
                 </dd>

@@ -24,10 +24,22 @@
 
     <template v-else>
       <div class="search-bar">
-        <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle cx="11" cy="11" r="8" stroke-width="2" /><path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35" />
+        <svg
+          class="search-icon"
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <circle cx="11" cy="11" r="8" stroke-width="2" />
+          <path stroke-linecap="round" stroke-width="2" d="m21 21-4.35-4.35" />
         </svg>
-        <input v-model="search" class="form-input search-input" placeholder="Search routes..." />
+        <input
+          v-model="search"
+          class="form-input search-input"
+          placeholder="Search routes..."
+        />
       </div>
 
       <div class="card">
@@ -44,38 +56,61 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="route in routes" :key="route.id">
+              <tr
+                v-for="route in routes"
+                :key="route.id"
+                class="cursor-pointer"
+                @click="$router.push(`/routes/${route.id}`)"
+              >
                 <td>
                   <router-link :to="`/routes/${route.id}`" class="cell-name-link">
                     {{ route.name }}
                   </router-link>
                 </td>
-                <td class="text-mono">{{ route.config?.path || '-' }}</td>
+                <td class="text-mono">{{ route.config?.path || "-" }}</td>
                 <td>
                   <span
                     v-for="m in getMethodsList(route)"
                     :key="m"
                     class="badge badge-info method-badge"
-                  >{{ m }}</span>
+                    >{{ m }}</span
+                  >
                 </td>
                 <td class="text-mono truncate cell-target">
-                  {{ route.config?.target || '-' }}
+                  {{ route.config?.target || "-" }}
                 </td>
                 <td>
-                  <span :class="['status-indicator', route.config?.enabled ? 'status-online' : 'status-offline']">
+                  <span
+                    :class="[
+                      'status-indicator',
+                      route.config?.enabled ? 'status-online' : 'status-offline',
+                    ]"
+                  >
                     <span class="status-dot"></span>
-                    {{ route.config?.enabled ? 'Online' : 'Offline' }}
+                    {{ route.config?.enabled ? "Online" : "Offline" }}
                   </span>
                 </td>
                 <td class="text-right">
                   <div style="display: flex; gap: 6px; justify-content: flex-end">
-                    <button class="btn btn-secondary btn-sm" @click="openEdit(route)">Edit</button>
-                    <button class="btn btn-danger btn-sm" @click="confirmDelete(route)">Delete</button>
+                    <button
+                      class="btn btn-secondary btn-sm"
+                      @click.stop="openEdit(route)"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      class="btn btn-danger btn-sm"
+                      @click.stop="confirmDelete(route)"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="routes.length === 0">
-                <td colspan="6" class="text-center text-muted" style="padding: 32px">No matching routes</td>
+                <td colspan="6" class="text-center text-muted" style="padding: 32px">
+                  No matching routes
+                </td>
               </tr>
             </tbody>
           </table>
@@ -93,13 +128,28 @@
       <div class="modal-body">
         <div class="form-group">
           <label class="form-label">Name</label>
-          <input v-model="formName" required class="form-input" placeholder="my-api-route" />
+          <input
+            v-model="formName"
+            required
+            class="form-input"
+            placeholder="my-api-route"
+          />
         </div>
 
         <!-- Mode toggle -->
         <div class="tabs mode-tabs">
-          <button :class="['tab', { active: formMode === 'simple' }]" @click="switchMode('simple')">Simple</button>
-          <button :class="['tab', { active: formMode === 'advanced' }]" @click="switchMode('advanced')">Advanced</button>
+          <button
+            :class="['tab', { active: formMode === 'simple' }]"
+            @click="switchMode('simple')"
+          >
+            Simple
+          </button>
+          <button
+            :class="['tab', { active: formMode === 'advanced' }]"
+            @click="switchMode('advanced')"
+          >
+            Advanced
+          </button>
         </div>
 
         <!-- Simple mode -->
@@ -110,14 +160,63 @@
           </div>
           <div class="form-group">
             <label class="form-label">Target</label>
-            <input v-model="simpleForm.target" class="form-input" placeholder="http://backend:8080" />
+            <input
+              v-model="simpleForm.target"
+              class="form-input"
+              placeholder="http://backend:8080"
+            />
           </div>
           <div class="form-group">
-            <label class="form-label">Hosts <span class="form-hint-inline">(comma-separated)</span></label>
-            <input v-model="simpleForm.hosts" class="form-input" placeholder="api.example.com, api2.example.com" />
+            <label class="form-label" for="hosts"
+              >Hosts <span class="form-hint-inline">(comma-separated)</span>
+            </label>
+
+            <div class="input-host-container">
+              <div class="host-list">
+                <span v-for="(host, index) in parsedHosts" :key="index" class="host-chip">
+                  {{ host }}
+                  <button
+                    type="button"
+                    @click="handleRemoveHost(host, $event)"
+                    class="host-remove-btn"
+                    @touchend.prevent="handleRemoveHost(host, $event)"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </span>
+
+                <input
+                  id="hosts"
+                  v-model="hostInput"
+                  class="host-input-field"
+                  type="text"
+                  placeholder="goma.localhost, api.goma-admin.com"
+                  @input="handleHostInput"
+                  @keydown="handleHostInputKeydown"
+                  @blur="handleHostInputBlur"
+                />
+              </div>
+            </div>
+
+            <p class="form-hint">Use Enter, Space, or Comma to add a host</p>
+            <p class="form-tip">
+              Tip: Type "api.localhost" then press comma to add quickly
+            </p>
           </div>
+
           <div class="form-group">
-            <label class="form-label">Methods <span class="form-hint-inline">(optional, defaults to all)</span></label>
+            <label class="form-label"
+              >Methods
+              <span class="form-hint-inline">(optional, defaults to all)</span></label
+            >
             <div class="methods-grid">
               <label v-for="m in allMethods" :key="m" class="checkbox-label">
                 <input type="checkbox" :value="m" v-model="simpleForm.methods" />
@@ -126,12 +225,21 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Rewrite <span class="form-hint-inline">(optional)</span></label>
-            <input v-model="simpleForm.rewrite" class="form-input" placeholder="/new-prefix/" />
+            <label class="form-label"
+              >Rewrite <span class="form-hint-inline">(optional)</span></label
+            >
+            <input
+              v-model="simpleForm.rewrite"
+              class="form-input"
+              placeholder="/new-prefix/"
+            />
           </div>
           <div class="form-group toggle-row">
             <label class="form-label">Enabled</label>
-            <button :class="['toggle-btn', { active: simpleForm.enabled }]" @click="simpleForm.enabled = !simpleForm.enabled">
+            <button
+              :class="['toggle-btn', { active: simpleForm.enabled }]"
+              @click="simpleForm.enabled = !simpleForm.enabled"
+            >
               <span class="toggle-slider"></span>
             </button>
           </div>
@@ -140,27 +248,41 @@
         <!-- Advanced mode -->
         <template v-else>
           <div class="form-warning">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86l-8.6 14.86A1 1 0 0 0 2.54 20h18.92a1 1 0 0 0 .85-1.28l-8.6-14.86a1 1 0 0 0-1.42 0z" />
+            <svg
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01M10.29 3.86l-8.6 14.86A1 1 0 0 0 2.54 20h18.92a1 1 0 0 0 .85-1.28l-8.6-14.86a1 1 0 0 0-1.42 0z"
+              />
             </svg>
             <span>Enter advanced configuration at your own risk!</span>
           </div>
           <div class="form-group">
             <label class="form-label">Configuration (YAML)</label>
-            <CodeEditor
-              v-model="yamlContent"
-              language="yaml"
-              min-height="360px"
-            />
+            <CodeEditor v-model="yamlContent" language="yaml" min-height="360px" />
           </div>
         </template>
 
         <div v-if="yamlError" class="form-error yaml-error">{{ yamlError }}</div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
-          <button type="button" class="btn btn-primary" :disabled="saving" @click="handleSubmit">
-            {{ saving ? 'Saving...' : (editing ? 'Update' : 'Create') }}
+          <button type="button" class="btn btn-secondary" @click="closeModal">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="saving"
+            @click="handleSubmit"
+          >
+            {{ saving ? "Saving..." : editing ? "Update" : "Create" }}
           </button>
         </div>
       </div>
@@ -174,7 +296,8 @@
     >
       <div class="modal-body">
         <p class="form-hint import-hint">
-          Paste a YAML file containing a <code>routes</code> list. Existing routes with the same name will be updated.
+          Paste a YAML file containing a <code>routes</code> list. Existing routes with
+          the same name will be updated.
         </p>
 
         <div class="form-group">
@@ -185,27 +308,36 @@
               <input type="file" accept=".yaml,.yml" hidden @change="handleImportFile" />
             </label>
           </div>
-          <CodeEditor
-            v-model="importYaml"
-            language="yaml"
-            min-height="360px"
-          />
+          <CodeEditor v-model="importYaml" language="yaml" min-height="360px" />
         </div>
 
         <div v-if="importError" class="form-error yaml-error">{{ importError }}</div>
 
         <div v-if="importResult" class="import-result">
-          <span v-if="importResult.created" class="badge badge-success">{{ importResult.created }} created</span>
-          <span v-if="importResult.updated" class="badge badge-info">{{ importResult.updated }} updated</span>
+          <span v-if="importResult.created" class="badge badge-success"
+            >{{ importResult.created }} created</span
+          >
+          <span v-if="importResult.updated" class="badge badge-info"
+            >{{ importResult.updated }} updated</span
+          >
           <div v-if="importResult.errors?.length" class="import-errors">
-            <div v-for="(err, i) in importResult.errors" :key="i" class="form-error">{{ err }}</div>
+            <div v-for="(err, i) in importResult.errors" :key="i" class="form-error">
+              {{ err }}
+            </div>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="closeImportModal">Cancel</button>
-          <button type="button" class="btn btn-primary" :disabled="importing" @click="handleImport">
-            {{ importing ? 'Importing...' : 'Import' }}
+          <button type="button" class="btn btn-secondary" @click="closeImportModal">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="importing"
+            @click="handleImport"
+          >
+            {{ importing ? "Importing..." : "Import" }}
           </button>
         </div>
       </div>
@@ -214,7 +346,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { routesApi, type Route, type RouteCreateRequest, type ImportResult } from '@/api/routes'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
@@ -433,6 +565,83 @@ function switchMode(mode: 'simple' | 'advanced') {
   }
   formMode.value = mode
 }
+
+// Hosts management
+const hostInput = ref("");
+const parsedHosts = computed(() => {
+  if (!simpleForm.value.hosts) return [];
+  return simpleForm.value.hosts
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t);
+});
+
+const addHost = () => {
+  const newHost = hostInput.value.trim();
+  if (!newHost) return;
+
+  const currentHosts = parsedHosts.value;
+  if (currentHosts.includes(newHost)) {
+    hostInput.value = "";
+    return;
+  }
+
+  simpleForm.value.hosts = [...currentHosts, newHost].join(", ");
+  hostInput.value = "";
+};
+
+const removeHost = (hostToRemove: string) => {
+  simpleForm.value.hosts = parsedHosts.value.filter((host) => host !== hostToRemove).join(", ");
+};
+
+const handleHostInputKeydown = (e: KeyboardEvent) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addHost();
+  } else if (e.key === " ") {
+    // Allow space for multi-word Hosts, but trim and add if there's content
+    if (hostInput.value.trim()) {
+      e.preventDefault();
+      addHost();
+    }
+  } else if (e.key === "Backspace" && !hostInput.value && parsedHosts.value.length > 0) {
+    // Remove last host when backspace is pressed on empty input
+    e.preventDefault();
+    removeHost(parsedHosts.value[parsedHosts.value.length - 1]);
+  }
+};
+
+// Handle comma and space input to work on all keyboards/devices
+const handleHostInput = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const value = target.value;
+
+  // Check if the last character is a comma or space
+  if (value.endsWith(",") || (value.endsWith(" ") && value.trim().length > 0)) {
+    // Remove the comma/space and add the host
+    const cleanValue = value.slice(0, -1).trim();
+    if (cleanValue) {
+      hostInput.value = cleanValue;
+      addHost();
+    } else {
+      hostInput.value = "";
+    }
+  }
+};
+
+// Add host on blur (when user clicks/taps outside) for better mobile experience
+const handleHostInputBlur = () => {
+  if (hostInput.value.trim()) {
+    addHost();
+  }
+};
+
+// Handle host removal with proper touch event support
+const handleRemoveHost = (host: string, e: Event) => {
+  e.preventDefault();
+  e.stopPropagation();
+  removeHost(host);
+};
 
 /* ── Modal open / close ── */
 function openCreate() {
@@ -697,15 +906,27 @@ onMounted(fetchRoutes)
 }
 
 @keyframes pulse-green {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
-  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
 }
 
 @keyframes pulse-red {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 .action-delete {

@@ -317,6 +317,7 @@ option::checkmark {
 }
 
 .form-input::placeholder,
+.host-input-field::placeholder,
 .form-textarea::placeholder {
   color: var(--text-muted);
 }
@@ -344,6 +345,98 @@ option::checkmark {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+/* ====== Host input ====== */
+.input-host-container {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.input-host-container:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-focus);
+}
+
+.host-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+}
+
+
+.host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--primary-600);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  animation: host-pop 0.2s ease-out;
+}
+
+@keyframes host-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.host-remove-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.host-remove-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.host-remove-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.host-input-field {
+  flex: 1;
+  min-width: 150px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.form-tip {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
 }
 
 /* ====== Toggle ====== */
