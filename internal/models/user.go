@@ -9,26 +9,26 @@ import (
 )
 
 type User struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id" yaml:"id"`
-	Email         string         `gorm:"uniqueIndex;not null;size:255" json:"email" yaml:"email"`
-	Password      string         `json:"-" yaml:"-"`
-	Name          string         `gorm:"size:255" json:"name" yaml:"name"`
-	Avatar        string         `gorm:"size:500" json:"avatar,omitempty" yaml:"avatar,omitempty"`
-	Role          string         `gorm:"size:50;default:'user';index" json:"role" yaml:"role"` // admin, user, viewer, etc.
-	EmailVerified bool           `gorm:"default:false;index" json:"emailVerified" yaml:"emailVerified"`
-	Active        bool           `gorm:"default:true;index" json:"active" yaml:"active"`
-	OAuthProvider string         `gorm:"size:50;index" json:"oauthProvider,omitempty" yaml:"oauthProvider,omitempty"` // google, github, or empty for local
+	ID               uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id" yaml:"id"`
+	Email            string         `gorm:"uniqueIndex;not null;size:255" json:"email" yaml:"email"`
+	Password         string         `json:"-" yaml:"-"`
+	Name             string         `gorm:"size:255" json:"name" yaml:"name"`
+	Avatar           string         `gorm:"size:500" json:"avatar,omitempty" yaml:"avatar,omitempty"`
+	Role             string         `gorm:"size:50;default:'user';index" json:"role" yaml:"role"` // admin, user, viewer, etc.
+	EmailVerified    bool           `gorm:"default:false;index" json:"emailVerified" yaml:"emailVerified"`
+	Active           bool           `gorm:"default:true;index" json:"active" yaml:"active"`
+	OAuthProvider    string         `gorm:"size:50;index" json:"oauthProvider,omitempty" yaml:"oauthProvider,omitempty"` // google, github, or empty for local
 	OAuthID          string         `gorm:"size:255;index" json:"-" yaml:"-"`                                            // Provider-specific user ID
 	TwoFactorSecret  string         `gorm:"type:text" json:"-" yaml:"-"`
 	TwoFactorEnabled bool           `gorm:"default:false" json:"twoFactorEnabled" yaml:"twoFactorEnabled"`
 	LastLoginAt      *time.Time     `json:"lastLoginAt,omitempty" yaml:"lastLoginAt,omitempty"`
-	LastLoginIP   string         `gorm:"size:45" json:"lastLoginIp,omitempty" yaml:"lastLoginIp,omitempty"`
-	FailedLogins  int            `gorm:"default:0" json:"-" yaml:"-"`
-	LockedUntil   *time.Time     `json:"lockedUntil,omitempty" yaml:"lockedUntil,omitempty"`
-	Metadata      JSONB          `gorm:"type:jsonb" json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	CreatedAt     time.Time      `gorm:"column:created_at" json:"createdAt" yaml:"createdAt"`
-	UpdatedAt     time.Time      `gorm:"column:updated_at" json:"updatedAt" yaml:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-" yaml:"-"`
+	LastLoginIP      string         `gorm:"size:45" json:"lastLoginIp,omitempty" yaml:"lastLoginIp,omitempty"`
+	FailedLogins     int            `gorm:"default:0" json:"-" yaml:"-"`
+	LockedUntil      *time.Time     `json:"lockedUntil,omitempty" yaml:"lockedUntil,omitempty"`
+	Metadata         JSONB          `gorm:"type:jsonb" json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	CreatedAt        time.Time      `gorm:"column:created_at" json:"createdAt" yaml:"createdAt"`
+	UpdatedAt        time.Time      `gorm:"column:updated_at" json:"updatedAt" yaml:"updatedAt"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-" yaml:"-"`
 
 	// Associations
 	Sessions  []UserSession `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-" yaml:"-"`
