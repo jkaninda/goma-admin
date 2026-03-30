@@ -1,4 +1,5 @@
 import api from './client'
+import type { Route } from './routes'
 
 export interface Middleware {
   id: number
@@ -14,6 +15,13 @@ export interface MiddlewareCreateRequest {
   name: string
   type: string
   config: Record<string, unknown>
+}
+
+export interface MiddlewareTypeInfo {
+  type: string
+  name: string
+  description: string
+  category: string
 }
 
 export interface ImportResult {
@@ -39,6 +47,12 @@ export const middlewaresApi = {
   },
   delete(id: number) {
     return api.delete(`/middlewares/${id}`)
+  },
+  types() {
+    return api.get<MiddlewareTypeInfo[]>('/middlewares/types')
+  },
+  usage(id: number) {
+    return api.get<Route[]>(`/middlewares/${id}/usage`)
   },
   search(query: string) {
     return api.get('/middlewares/search', { params: { q: query } })

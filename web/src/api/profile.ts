@@ -5,8 +5,15 @@ export interface Profile {
   name: string
   email: string
   role: string
+  two_factor_enabled: boolean
+  oauth_provider?: string
   created_at: string
   updated_at: string
+}
+
+export interface Setup2FAResponse {
+  secret: string
+  url: string
 }
 
 export interface UpdateProfileRequest {
@@ -30,5 +37,17 @@ export const profileApi = {
 
   changePassword(data: ChangePasswordRequest) {
     return api.put('/profile/password', data)
+  },
+
+  setup2FA() {
+    return api.post<Setup2FAResponse>('/profile/2fa/setup')
+  },
+
+  verify2FA(code: string) {
+    return api.post('/profile/2fa/verify', { code })
+  },
+
+  disable2FA(code: string) {
+    return api.post('/profile/2fa/disable', { code })
   },
 }

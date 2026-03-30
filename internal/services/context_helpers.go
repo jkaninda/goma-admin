@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/okapi"
 )
 
@@ -46,6 +47,19 @@ func GetUserID(c *okapi.Context) (uuid.UUID, error) {
 		return uuid.Nil, &unauthorizedError{}
 	}
 	return uuid.Parse(str)
+}
+
+// getCallerRole extracts the caller's role from the JWT context.
+func getCallerRole(c *okapi.Context) models.UserRole {
+	roleVal, ok := c.Get("role")
+	if !ok {
+		return ""
+	}
+	role, ok := roleVal.(string)
+	if !ok {
+		return ""
+	}
+	return models.UserRole(role)
 }
 
 type instanceRequiredError struct{}

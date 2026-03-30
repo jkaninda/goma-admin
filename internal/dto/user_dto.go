@@ -34,16 +34,20 @@ type ListUsersRequest struct {
 	Search   string `query:"search" description:"Search by name or email"`
 }
 
-// UserDetailResponse includes full user details for admin views.
 type UserDetailResponse struct {
-	ID            string  `json:"id"`
-	Email         string  `json:"email"`
-	Name          string  `json:"name"`
-	Avatar        string  `json:"avatar,omitempty"`
-	Role          string  `json:"role"`
-	EmailVerified bool    `json:"email_verified"`
-	Active        bool    `json:"active"`
-	OAuthProvider string  `json:"oauth_provider,omitempty"`
-	LastLoginAt   *string `json:"last_login_at,omitempty"`
-	CreatedAt     string  `json:"created_at"`
+	ID               string  `json:"id"`
+	Email            string  `json:"email"`
+	Name             string  `json:"name"`
+	Avatar           string  `json:"avatar,omitempty"`
+	Role             string  `json:"role"`
+	EmailVerified    bool    `json:"email_verified"`
+	Active           bool    `json:"active"`
+	TwoFactorEnabled bool    `json:"two_factor_enabled"`
+	OAuthProvider    string  `json:"oauth_provider,omitempty"`
+	LastLoginAt      *string `json:"last_login_at,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+}
+
+type AdminDisable2FARequest struct {
+	ID string `param:"id" required:"true" description:"User UUID"`
 }

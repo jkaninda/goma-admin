@@ -9,6 +9,7 @@ export interface UserDetail {
   role: string
   email_verified: boolean
   active: boolean
+  two_factor_enabled: boolean
   oauth_provider?: string
   last_login_at?: string
   created_at: string
@@ -49,5 +50,9 @@ export const usersApi = {
 
   delete(id: string) {
     return api.delete(`/users/${id}`)
+  },
+
+  disable2FA(id: string) {
+    return api.delete(`/users/${id}/2fa`)
   },
 }

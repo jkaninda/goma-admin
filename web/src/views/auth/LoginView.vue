@@ -26,6 +26,7 @@
               placeholder="you@example.com"
               required
               autocomplete="email"
+              :disabled="authStore.requires2FA"
             />
           </div>
 
@@ -39,12 +40,39 @@
               placeholder="Enter your password"
               required
               autocomplete="current-password"
+              :disabled="authStore.requires2FA"
             />
+          </div>
+
+          <div v-if="authStore.requires2FA" class="form-group">
+            <label class="form-label" for="tfa-code">Authentication Code</label>
+            <input
+              id="tfa-code"
+              v-model="form.two_factor_code"
+              type="text"
+              class="form-input totp-input"
+              placeholder="000000"
+              maxlength="6"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              required
+            />
+            <small class="form-hint">Enter the 6-digit code from your authenticator app</small>
           </div>
 
           <button type="submit" class="btn btn-primary login-submit" :disabled="authStore.loading">
             <span v-if="authStore.loading" class="spinner"></span>
-            {{ authStore.loading ? 'Signing in...' : 'Sign in' }}
+            {{ authStore.loading ? 'Signing in...' : (authStore.requires2FA ? 'Verify & Sign in' : 'Sign in') }}
+          </button>
+
+          <button
+            v-if="authStore.requires2FA"
+            type="button"
+            class="btn btn-secondary login-submit"
+            style="margin-top: 8px"
+            @click="reset2FA"
+          >
+            Back
           </button>
         </form>
 
@@ -78,16 +106,28 @@ const authStore = useAuthStore()
 const form = reactive({
   email: '',
   password: '',
+  two_factor_code: '',
 })
 
 const oauthProvider = ref<OAuthProviderInfo | null>(null)
 
 async function handleLogin() {
   try {
-    await authStore.login({ ...form, remember_me: false })
+    await authStore.login({
+      email: form.email,
+      password: form.password,
+      remember_me: false,
+      two_factor_code: form.two_factor_code || undefined,
+    })
   } catch {
     // error is handled in the store
   }
+}
+
+function reset2FA() {
+  authStore.requires2FA = false
+  authStore.error = ''
+  form.two_factor_code = ''
 }
 
 onMounted(async () => {
@@ -215,5 +255,19 @@ onMounted(async () => {
   margin-top: 24px;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.totp-input {
+  font-size: 20px;
+  text-align: center;
+  letter-spacing: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 </style>

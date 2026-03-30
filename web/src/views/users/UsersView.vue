@@ -48,6 +48,7 @@
               <th>Email</th>
               <th>Role</th>
               <th>Auth</th>
+              <th>2FA</th>
               <th>Status</th>
               <th>Last Login</th>
               <th class="text-right">Actions</th>
@@ -73,6 +74,11 @@
                 <span v-else class="text-muted text-sm">Local</span>
               </td>
               <td>
+                <span :class="['badge', u.two_factor_enabled ? 'badge-success' : 'badge-secondary']">
+                  {{ u.two_factor_enabled ? 'Enabled' : 'Off' }}
+                </span>
+              </td>
+              <td>
                 <span :class="['badge', u.active ? 'badge-success' : 'badge-danger']">
                   {{ u.active ? 'Active' : 'Disabled' }}
                 </span>
@@ -80,6 +86,11 @@
               <td>{{ u.last_login_at ? formatDate(u.last_login_at) : 'Never' }}</td>
               <td class="text-right">
                 <button class="btn btn-ghost btn-sm" @click="openEdit(u)">Edit</button>
+                <button
+                  v-if="u.two_factor_enabled && u.id !== currentUserId"
+                  class="btn btn-ghost btn-sm action-delete"
+                  @click="confirmDisable2FA(u)"
+                >Disable 2FA</button>
                 <button
                   v-if="u.id !== currentUserId"
                   class="btn btn-ghost btn-sm action-delete"
@@ -151,6 +162,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { usersApi, type UserDetail } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notification'
 import { useConfirm } from '@/composables/useConfirm'
 import Modal from '@/components/Modal.vue'
 import Pagination from '@/components/Pagination.vue'
@@ -158,6 +170,7 @@ import EmptyState from '@/components/EmptyState.vue'
 
 const { confirm } = useConfirm()
 const authStore = useAuthStore()
+const notifications = useNotificationStore()
 const currentUserId = computed(() => authStore.user?.id)
 
 const loading = ref(true)
@@ -238,6 +251,23 @@ async function handleSave() {
     // handled by interceptor
   } finally {
     saving.value = false
+  }
+}
+
+async function confirmDisable2FA(u: UserDetail) {
+  const confirmed = await confirm({
+    title: 'Disable 2FA',
+    message: `Are you sure you want to disable two-factor authentication for "${u.name}" (${u.email})? They will need to set it up again.`,
+    confirmText: 'Disable 2FA',
+    variant: 'danger',
+  })
+  if (!confirmed) return
+  try {
+    await usersApi.disable2FA(u.id)
+    notifications.success(`2FA disabled for ${u.name}`)
+    await fetchUsers()
+  } catch {
+    notifications.error('Failed to disable 2FA')
   }
 }
 

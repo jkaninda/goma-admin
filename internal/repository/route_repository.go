@@ -117,6 +117,15 @@ func (r *RouteRepository) CountByInstance(ctx context.Context, instanceID uint) 
 	return count, err
 }
 
+func (r *RouteRepository) FindByMiddlewareName(ctx context.Context, name string, instanceID uint) ([]models.Route, error) {
+	var routes []models.Route
+	err := r.db.WithContext(ctx).
+		Where("instance_id = ? AND config->'middlewares' @> ?", instanceID, fmt.Sprintf(`[%q]`, name)).
+		Order("name ASC").
+		Find(&routes).Error
+	return routes, err
+}
+
 func (r *RouteRepository) FindByNameAndInstance(ctx context.Context, name string, instanceID uint) (*models.Route, error) {
 	var route models.Route
 	err := r.db.WithContext(ctx).Where("name = ? AND instance_id = ?", name, instanceID).First(&route).Error

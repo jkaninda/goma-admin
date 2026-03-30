@@ -54,5 +54,12 @@ func (r *Router) userRoutes() []okapi.RouteDefinition {
 			Request: &dto.UserByIDRequest{},
 			Options: []okapi.RouteOption{okapi.DocBearerAuth(), okapi.DocResponse(204, nil)},
 		},
+		{
+			Path: "/:id/2fa", Method: http.MethodDelete, Group: group,
+			Handler: okapi.H(userService.AdminDisable2FA),
+			Summary: "Admin disable 2FA for a user",
+			Request: &dto.AdminDisable2FARequest{},
+			Options: []okapi.RouteOption{okapi.DocBearerAuth()},
+		},
 	}
 }

@@ -13,14 +13,21 @@ import (
 )
 
 type MiddlewareService struct {
-	repo     *repository.MiddlewareRepository
-	writer   *ProviderWriter
-	eventBus *EventBus
-	audit    *AuditService
+	repo      *repository.MiddlewareRepository
+	routeRepo *repository.RouteRepository
+	writer    *ProviderWriter
+	eventBus  *EventBus
+	audit     *AuditService
 }
 
 func NewMiddlewareService(db *gorm.DB, writer *ProviderWriter, eventBus *EventBus, audit *AuditService) *MiddlewareService {
-	return &MiddlewareService{repo: repository.NewMiddlewareRepository(db), writer: writer, eventBus: eventBus, audit: audit}
+	return &MiddlewareService{
+		repo:      repository.NewMiddlewareRepository(db),
+		routeRepo: repository.NewRouteRepository(db),
+		writer:    writer,
+		eventBus:  eventBus,
+		audit:     audit,
+	}
 }
 
 func (s MiddlewareService) List(c *okapi.Context, input *dto.ListRequest) error {
@@ -167,7 +174,47 @@ func (s MiddlewareService) Usage(c *okapi.Context, input *dto.MiddlewareByIDRq) 
 	if err != nil {
 		return c.AbortNotFound("Middleware not found", err)
 	}
-	// Find routes that reference this middleware by name in their config
-	// For now return the middleware info — route-middleware linking is done via config
-	return c.OK(okapi.M{"middleware": mw.Name, "message": "Check route configs for middleware references"})
+
+	routes, err := s.routeRepo.FindByMiddlewareName(c.Context(), mw.Name, mw.InstanceID)
+	if err != nil {
+		return c.AbortInternalServerError("Failed to find routes", err)
+	}
+
+	return c.OK(routes)
+}
+
+// Types returns the catalog of supported middleware types.
+func (s MiddlewareService) Types(c *okapi.Context) error {
+	return c.OK(middlewareTypes)
+}
+
+var middlewareTypes = []dto.MiddlewareTypeInfo{
+	// Authentication
+	{Type: "basic", Name: "Basic Auth", Description: "Requires HTTP Basic Authentication credentials with support for bcrypt, SHA-1, or plaintext passwords.", Category: "auth"},
+	{Type: "basicAuth", Name: "Basic Auth", Description: "Requires HTTP Basic Authentication credentials with support for bcrypt, SHA-1, or plaintext passwords.", Category: "auth"},
+	{Type: "forwardAuth", Name: "Forward Auth", Description: "Delegates authentication to an external service by forwarding requests for verification.", Category: "auth"},
+	{Type: "oauth", Name: "OAuth", Description: "Implements OAuth 2.0 authentication flow with providers like Google, GitHub, GitLab, or custom endpoints.", Category: "auth"},
+	{Type: "jwtAuth", Name: "JWT Auth", Description: "Validates JSON Web Tokens using shared secrets, public keys, or JWKS endpoints.", Category: "auth"},
+	{Type: "ldap", Name: "LDAP Auth", Description: "Validates HTTP Basic Authentication credentials against an LDAP directory server.", Category: "auth"},
+	{Type: "ldapAuth", Name: "LDAP Auth", Description: "Validates HTTP Basic Authentication credentials against an LDAP directory server.", Category: "auth"},
+	// Security
+	{Type: "access", Name: "Access", Description: "Blocks requests to specified paths with exact, prefix, or regex matching.", Category: "security"},
+	{Type: "accessPolicy", Name: "Access Policy", Description: "Implements IP-based access control with ALLOW/DENY rules using IPs, ranges, or CIDR blocks.", Category: "security"},
+	{Type: "bodyLimit", Name: "Body Limit", Description: "Restricts request body size and rejects oversized payloads with 413 status.", Category: "security"},
+	{Type: "userAgentBlock", Name: "User Agent Block", Description: "Blocks requests from specific user agents such as bots and crawlers.", Category: "security"},
+	// Traffic management
+	{Type: "rateLimit", Name: "Rate Limiting", Description: "Limits the number of requests per time window and optionally bans repeat offenders.", Category: "traffic"},
+	{Type: "redirect", Name: "Redirect", Description: "Redirects incoming HTTP requests to a different hostname with 301 or 302 status codes.", Category: "traffic"},
+	{Type: "redirectRegex", Name: "Redirect Regex", Description: "Redirects requests using regular expression patterns with capture group support.", Category: "traffic"},
+	{Type: "redirectScheme", Name: "Redirect Scheme", Description: "Redirects requests to a different scheme (e.g., HTTP to HTTPS) with optional port.", Category: "traffic"},
+	// Request/response transformation
+	{Type: "addPrefix", Name: "Add Prefix", Description: "Adds a path prefix to incoming requests before forwarding to the backend.", Category: "transform"},
+	{Type: "rewriteRegex", Name: "Rewrite Regex", Description: "Rewrites request paths using regular expressions with capture group support.", Category: "transform"},
+	{Type: "requestHeaders", Name: "Request Headers", Description: "Adds, modifies, or removes headers on incoming requests before forwarding to backends.", Category: "transform"},
+	{Type: "responseHeaders", Name: "Response Headers", Description: "Manages response headers including CORS, security headers, cookies, and cache control.", Category: "transform"},
+	// Performance
+	{Type: "httpCache", Name: "HTTP Caching", Description: "Caches backend responses in memory/Redis with configurable TTL, status codes, and query key options.", Category: "performance"},
+	// Observability
+	{Type: "errorInterceptor", Name: "Error Interceptor", Description: "Intercepts backend error responses and serves custom error pages or JSON payloads.", Category: "observability"},
+	{Type: "accessLog", Name: "Access Log", Description: "Captures detailed access logs including selected headers, query parameters, and cookies.", Category: "observability"},
 }

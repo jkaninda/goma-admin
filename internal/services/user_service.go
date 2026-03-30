@@ -92,7 +92,13 @@ func (s *UserService) Create(c *okapi.Context, input *dto.CreateUserRequest) err
 	}
 	// Validate role
 	if !isValidRole(role) {
-		return c.AbortBadRequest("Invalid role. Must be one of: viewer, user, admin", nil)
+		return c.AbortBadRequest("Invalid role. Must be one of: viewer, user, admin, superadmin", nil)
+	}
+
+	// Prevent assigning a role higher than the caller's own role
+	callerRole := getCallerRole(c)
+	if !callerRole.CanAccess(models.UserRole(role)) {
+		return c.AbortForbidden("Cannot assign a role higher than your own")
 	}
 
 	user := &models.User{
@@ -126,10 +132,17 @@ func (s *UserService) Update(c *okapi.Context, input *dto.UpdateUserRequest) err
 		return c.AbortNotFound("User not found", err)
 	}
 
-	// Prevent demoting yourself
 	callerID, _ := GetUserID(c)
+	callerRole := getCallerRole(c)
+
+	// Prevent demoting yourself
 	if callerID == user.ID && input.Body.Role != "" && input.Body.Role != user.Role {
 		return c.AbortBadRequest("Cannot change your own role", nil)
+	}
+
+	// Prevent modifying users with equal or higher roles (unless it's yourself)
+	if callerID != user.ID && !callerRole.CanAccess(models.UserRole(user.Role)) {
+		return c.AbortForbidden("Cannot modify a user with equal or higher role")
 	}
 
 	if input.Body.Email != "" {
@@ -141,6 +154,10 @@ func (s *UserService) Update(c *okapi.Context, input *dto.UpdateUserRequest) err
 	if input.Body.Role != "" {
 		if !isValidRole(input.Body.Role) {
 			return c.AbortBadRequest("Invalid role", nil)
+		}
+		// Prevent assigning a role higher than the caller's own role
+		if !callerRole.CanAccess(models.UserRole(input.Body.Role)) {
+			return c.AbortForbidden("Cannot assign a role higher than your own")
 		}
 		user.Role = input.Body.Role
 	}
@@ -171,6 +188,16 @@ func (s *UserService) Delete(c *okapi.Context, input *dto.UserByIDRequest) error
 		return c.AbortBadRequest("Cannot delete your own account", nil)
 	}
 
+	// Prevent deleting users with equal or higher roles
+	callerRole := getCallerRole(c)
+	user, err := s.userRepo.GetByID(c.Request().Context(), id)
+	if err != nil {
+		return c.AbortNotFound("User not found", err)
+	}
+	if !callerRole.CanAccess(models.UserRole(user.Role)) {
+		return c.AbortForbidden("Cannot delete a user with equal or higher role")
+	}
+
 	if err := s.userRepo.Delete(c.Request().Context(), id); err != nil {
 		return c.AbortInternalServerError("Failed to delete user", err)
 	}
@@ -180,15 +207,16 @@ func (s *UserService) Delete(c *okapi.Context, input *dto.UserByIDRequest) error
 
 func toUserDetail(u models.User) dto.UserDetailResponse {
 	d := dto.UserDetailResponse{
-		ID:            u.ID.String(),
-		Email:         u.Email,
-		Name:          u.Name,
-		Avatar:        u.Avatar,
-		Role:          u.Role,
-		EmailVerified: u.EmailVerified,
-		Active:        u.Active,
-		OAuthProvider: u.OAuthProvider,
-		CreatedAt:     u.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		ID:               u.ID.String(),
+		Email:            u.Email,
+		Name:             u.Name,
+		Avatar:           u.Avatar,
+		Role:             u.Role,
+		EmailVerified:    u.EmailVerified,
+		Active:           u.Active,
+		TwoFactorEnabled: u.TwoFactorEnabled,
+		OAuthProvider:    u.OAuthProvider,
+		CreatedAt:        u.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 	if u.LastLoginAt != nil {
 		t := u.LastLoginAt.Format("2006-01-02T15:04:05Z")
@@ -197,9 +225,32 @@ func toUserDetail(u models.User) dto.UserDetailResponse {
 	return d
 }
 
+// AdminDisable2FA allows an admin to disable 2FA for any user (emergency access).
+func (s *UserService) AdminDisable2FA(c *okapi.Context, input *dto.AdminDisable2FARequest) error {
+	id, err := uuid.Parse(input.ID)
+	if err != nil {
+		return c.AbortBadRequest("Invalid user ID", err)
+	}
+
+	user, err := s.userRepo.GetByID(c.Request().Context(), id)
+	if err != nil {
+		return c.AbortNotFound("User not found", err)
+	}
+
+	if !user.TwoFactorEnabled {
+		return c.AbortBadRequest("2FA is not enabled for this user", nil)
+	}
+
+	if err := s.userRepo.UpdateTwoFactor(c.Request().Context(), id, "", false); err != nil {
+		return c.AbortInternalServerError("Failed to disable 2FA", err)
+	}
+
+	return c.OK(okapi.M{"message": "2FA disabled"})
+}
+
 func isValidRole(role string) bool {
 	switch models.UserRole(role) {
-	case models.RoleViewer, models.RoleUser, models.RoleAdmin:
+	case models.RoleViewer, models.RoleUser, models.RoleAdmin, models.RoleSuperAdmin:
 		return true
 	default:
 		return false
