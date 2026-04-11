@@ -18,8 +18,14 @@ type Config struct {
 	Docker       DockerConfig
 	HealthCheck  HealthCheckConfig
 	RepoSync     RepoSyncConfig
+	TLS          TLSConfig
 	ProvidersDir string
 	WebDir       string
+}
+
+type TLSConfig struct {
+	AcmeStorageFile string
+	CertsDir        string
 }
 
 type DockerConfig struct {

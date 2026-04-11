@@ -69,6 +69,10 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 			Enabled:  goutils.EnvBool("GOMA_REPO_SYNC_ENABLED", true),
 			Interval: parseDuration(goutils.Env("GOMA_REPO_SYNC_INTERVAL", "2m"), 2*time.Minute),
 		},
+		TLS: TLSConfig{
+			AcmeStorageFile: goutils.Env("GOMA_ACME_STORAGE_FILE", "/etc/letsencrypt/acme.json"),
+			CertsDir:        goutils.Env("GOMA_CERTS_DIR", "/etc/goma/certs"),
+		},
 		ProvidersDir: goutils.Env("GOMA_PROVIDERS_DIR", "/etc/goma/providers"),
 		WebDir:       goutils.Env("GOMA_WEB_DIR", "web/dist"),
 	}

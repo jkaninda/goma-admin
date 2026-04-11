@@ -571,6 +571,7 @@ function yamlToObject(yamlStr: string): Record<string, unknown> {
 
 /* ── Default YAML template ── */
 const defaultYaml = `path: /api/v1/*
+hosts: ["api.example.com"]
 target: https://backend.example.com
 methods:
   - GET
@@ -840,6 +841,7 @@ async function confirmDelete(route: Route) {
 const defaultImportYaml = `routes:
   - name: my-route
     path: /api/v1
+    hosts: ["api.example.com"]
     target: http://backend:8080
     methods:
       - GET

@@ -61,6 +61,10 @@ const MiddlewaresIcon = () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke:
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' })
 ])
 
+const CertificatesIcon = () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' })
+])
+
 const AuditLogIcon = () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' })
 ])
@@ -83,6 +87,7 @@ const baseNavItems = [
   { to: '/instances', label: 'Instances', icon: InstancesIcon },
   { to: '/routes', label: 'Routes', icon: RoutesIcon },
   { to: '/middlewares', label: 'Middlewares', icon: MiddlewaresIcon },
+  { to: '/certificates', label: 'TLS Certificates', icon: CertificatesIcon },
   { to: '/audit', label: 'Audit Log', icon: AuditLogIcon },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]

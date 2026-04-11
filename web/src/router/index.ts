@@ -74,6 +74,17 @@ const router = createRouter({
           props: true,
         },
         {
+          path: 'certificates',
+          name: 'certificates',
+          component: () => import('@/views/certificates/CertificatesView.vue'),
+        },
+        {
+          path: 'certificates/:domain',
+          name: 'certificate-detail',
+          component: () => import('@/views/certificates/CertificateDetailView.vue'),
+          props: true,
+        },
+        {
           path: 'audit',
           name: 'audit',
           component: () => import('@/views/audit/AuditLogView.vue'),

@@ -43,6 +43,7 @@ var (
 	metricsService        *services.MetricsService
 	userService           *services.UserService
 	repositoryService     *services.RepositoryService
+	tlsService            *services.TLSService
 )
 
 // SetDockerProvider sets the Docker provider after it has been initialized.
@@ -69,6 +70,7 @@ func NewRouter(ctx context.Context, app *okapi.Okapi, conf *config.Config, docke
 	metricsService = services.NewMetricsService(conf.Database.DB)
 	gitService := services.NewGitService(conf.ProvidersDir + "/git-provider")
 	repositoryService = services.NewRepositoryService(conf.Database.DB, gitService)
+	tlsService = services.NewTLSService(conf.TLS.AcmeStorageFile, conf.TLS.CertsDir)
 	instanceConfigService.SetGitService(gitService)
 	return &Router{
 		app:            app,
@@ -107,6 +109,7 @@ func (r *Router) RegisterRoutes() {
 	r.app.Register(r.metricsRoutes()...)
 	r.app.Register(r.eventRoutes()...)
 	r.app.Register(r.repositoryRoutes()...)
+	r.app.Register(r.tlsRoutes()...)
 
 	// SPA serving
 	r.registerSPA()
@@ -335,6 +338,37 @@ func (r *Router) providerRoutes() []okapi.RouteDefinition {
 			Handler: providerService.Webhook,
 			Summary: "Webhook notification from gateway",
 			Options: []okapi.RouteOption{okapi.DocBearerAuth(), okapi.DocPathParam("name", "string", "Instance name")},
+		},
+	}
+}
+
+func (r *Router) tlsRoutes() []okapi.RouteDefinition {
+	group := r.group.Group("/tls").WithTags([]string{"TLS Certificates"})
+	group.Use(r.auth.JWT.Middleware)
+	group.Use(middlewares.RequireRole(models.RoleUser))
+	return []okapi.RouteDefinition{
+		{
+			Path: "/overview", Method: http.MethodGet, Group: group,
+			Handler:  tlsService.Overview,
+			Summary:  "Get TLS certificates overview",
+			Response: &models.TLSOverview{},
+			Options:  []okapi.RouteOption{okapi.DocBearerAuth()},
+		},
+		{
+			Path: "/certificates", Method: http.MethodGet, Group: group,
+			Handler:  okapi.H(tlsService.List),
+			Summary:  "List all TLS certificates",
+			Request:  &dto.ListRequest{},
+			Response: &dto.PageableResponse[models.CertificateSummary]{},
+			Options:  []okapi.RouteOption{okapi.DocBearerAuth()},
+		},
+		{
+			Path: "/certificates/:domain", Method: http.MethodGet, Group: group,
+			Handler:  okapi.H(tlsService.Get),
+			Summary:  "Get certificate by domain",
+			Request:  &dto.CertificateByDomainRq{},
+			Response: &models.CertificateSummary{},
+			Options:  []okapi.RouteOption{okapi.DocBearerAuth()},
 		},
 	}
 }
