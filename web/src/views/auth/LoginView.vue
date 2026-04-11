@@ -89,8 +89,6 @@
             Sign in with {{ oauthProvider.display_name || oauthProvider.name }}
           </a>
         </template>
-
-        <p class="login-footer">Contact your administrator for an account.</p>
       </div>
     </div>
   </div>
