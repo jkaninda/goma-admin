@@ -11,8 +11,7 @@
         <div class="about-hero-text">
           <h2>{{ info.name || 'Goma Admin' }}</h2>
           <p class="about-tagline">
-            Management UI for Goma Gateway — configure instances, routes,
-            middlewares, and TLS certificates from a single place.
+            Control Plane for Goma Gateway — Manage, configure, and monitor distributed API gateways from a single, unified dashboard.
           </p>
           <div class="about-badges">
             <span class="badge badge-info">{{ info.version ? `v${info.version}` : 'dev' }}</span>
