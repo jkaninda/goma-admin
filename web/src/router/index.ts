@@ -114,6 +114,11 @@ const router = createRouter({
           name: 'oauth-settings',
           component: () => import('@/views/settings/OAuthSettingsView.vue'),
         },
+        {
+          path: 'about',
+          name: 'about',
+          component: () => import('@/views/about/AboutView.vue'),
+        },
       ],
     },
   ],
