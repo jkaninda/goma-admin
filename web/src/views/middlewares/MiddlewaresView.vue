@@ -165,6 +165,7 @@ import Modal from '@/components/Modal.vue'
 import CodeEditor from '@/components/CodeEditor.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import Pagination from '@/components/Pagination.vue'
+import { parseYaml, toYaml } from '@/utils/yaml'
 
 const { confirm } = useConfirm()
 const notify = useNotificationStore()
@@ -206,234 +207,6 @@ const form = reactive({
   name: '',
   type: '',
 })
-
-/* ── YAML helpers ── */
-
-function objectToYaml(obj: unknown, indent = 0): string {
-  const pad = '  '.repeat(indent)
-  const lines: string[] = []
-
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-        const nested = objectToYaml(item, indent + 1)
-        const nestedLines = nested.split('\n').filter(Boolean)
-        if (nestedLines.length > 0) {
-          lines.push(`${pad}- ${nestedLines[0].replace(/^\s+/, '')}`)
-          for (let i = 1; i < nestedLines.length; i++) {
-            lines.push(`${pad}  ${nestedLines[i].replace(/^\s+/, '')}`)
-          }
-        }
-      } else {
-        lines.push(`${pad}- ${formatScalar(item)}`)
-      }
-    }
-    return lines.join('\n')
-  }
-
-  if (typeof obj === 'object' && obj !== null) {
-    for (const [key, value] of Object.entries(obj)) {
-      if (value === undefined) continue
-      if (value === null) {
-        lines.push(`${pad}${key}: null`)
-      } else if (Array.isArray(value)) {
-        if (value.length === 0) {
-          lines.push(`${pad}${key}: []`)
-        } else {
-          lines.push(`${pad}${key}:`)
-          lines.push(objectToYaml(value, indent + 1))
-        }
-      } else if (typeof value === 'object') {
-        if (Object.keys(value).length === 0) {
-          lines.push(`${pad}${key}: {}`)
-        } else {
-          lines.push(`${pad}${key}:`)
-          lines.push(objectToYaml(value, indent + 1))
-        }
-      } else {
-        lines.push(`${pad}${key}: ${formatScalar(value)}`)
-      }
-    }
-    return lines.join('\n')
-  }
-
-  return `${pad}${formatScalar(obj)}`
-}
-
-function formatScalar(val: unknown): string {
-  if (val === null) return 'null'
-  if (val === undefined) return ''
-  if (typeof val === 'boolean') return val ? 'true' : 'false'
-  if (typeof val === 'number') return String(val)
-  const s = String(val)
-  if (s === '' || s === 'true' || s === 'false' || s === 'null' || s === '~' || /^[\d.-]/.test(s) || /[:#{}[\],&*?|>!%@`]/.test(s)) {
-    return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-  }
-  return s
-}
-
-function parseScalar(val: string): unknown {
-  if (val === 'true') return true
-  if (val === 'false') return false
-  if (val === 'null' || val === '~') return null
-  if (val === '[]') return []
-  if (val === '{}') return {}
-  if (/^-?\d+$/.test(val)) return parseInt(val, 10)
-  if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val)
-  return val.replace(/^["']|["']$/g, '')
-}
-
-function yamlToObject(yamlStr: string): Record<string, unknown> {
-  const lines = yamlStr.split('\n')
-  return parseBlock(lines, 0, 0).value as Record<string, unknown>
-}
-
-function getIndent(line: string): number {
-  const m = line.match(/^(\s*)/)
-  return m ? m[1].length : 0
-}
-
-function parseBlock(lines: string[], start: number, baseIndent: number): { value: unknown; nextIndex: number } {
-  const result: Record<string, unknown> = {}
-  let i = start
-
-  while (i < lines.length) {
-    const raw = lines[i]
-    const stripped = raw.replace(/\s+$/, '')
-
-    // Skip empty / comment lines
-    if (stripped === '' || stripped.replace(/^\s+/, '').startsWith('#')) {
-      i++
-      continue
-    }
-
-    const indent = getIndent(stripped)
-    if (indent < baseIndent) break
-
-    const content = stripped.replace(/^\s+/, '')
-
-    // Array item at this level
-    if (content.startsWith('- ') || content === '-') {
-      // This block is actually an array — parse as array
-      return parseArray(lines, start, baseIndent)
-    }
-
-    // Key-value line
-    const kvMatch = content.match(/^([\w][\w.-]*):\s*(.*)$/)
-    if (kvMatch) {
-      const key = kvMatch[1]
-      const val = kvMatch[2].trim()
-
-      if (val === '' || val === '|' || val === '>') {
-        // Check if next non-empty line is indented further
-        const nextNonEmpty = findNextNonEmpty(lines, i + 1)
-        if (nextNonEmpty !== -1 && getIndent(lines[nextNonEmpty]) > indent) {
-          const childIndent = getIndent(lines[nextNonEmpty])
-          const child = parseBlock(lines, i + 1, childIndent)
-          result[key] = child.value
-          i = child.nextIndex
-        } else {
-          result[key] = null
-          i++
-        }
-      } else {
-        result[key] = parseScalar(val)
-        i++
-      }
-    } else {
-      i++
-    }
-  }
-
-  return { value: result, nextIndex: i }
-}
-
-function parseArray(lines: string[], start: number, baseIndent: number): { value: unknown; nextIndex: number } {
-  const result: unknown[] = []
-  let i = start
-
-  while (i < lines.length) {
-    const raw = lines[i]
-    const stripped = raw.replace(/\s+$/, '')
-
-    if (stripped === '' || stripped.replace(/^\s+/, '').startsWith('#')) {
-      i++
-      continue
-    }
-
-    const indent = getIndent(stripped)
-    if (indent < baseIndent) break
-
-    const content = stripped.replace(/^\s+/, '')
-
-    if (content.startsWith('- ')) {
-      const itemContent = content.slice(2).trim()
-
-      // Check if the item itself contains a key: value (inline map item)
-      const inlineKv = itemContent.match(/^([\w][\w.-]*):\s*(.*)$/)
-
-      if (inlineKv) {
-        // Could be a mapping entry — check for further nested lines
-        const nextNonEmpty = findNextNonEmpty(lines, i + 1)
-        const itemIndent = indent + 2 // items inside "- " are indented 2 more
-
-        if (nextNonEmpty !== -1 && getIndent(lines[nextNonEmpty]) >= itemIndent) {
-          // Multi-line mapping item: reconstruct lines with adjusted indentation
-          const subLines: string[] = ['  '.repeat(0) + itemContent]
-          let j = i + 1
-          while (j < lines.length) {
-            const subRaw = lines[j]
-            const subStripped = subRaw.replace(/\s+$/, '')
-            if (subStripped === '' || subStripped.replace(/^\s+/, '').startsWith('#')) {
-              j++
-              continue
-            }
-            if (getIndent(subStripped) < itemIndent) break
-            // Re-indent relative to itemIndent
-            subLines.push(subStripped.slice(itemIndent))
-            j++
-          }
-          const child = parseBlock(subLines, 0, 0)
-          result.push(child.value)
-          i = j
-        } else {
-          // Single key-value — treat as small object
-          const obj: Record<string, unknown> = {}
-          obj[inlineKv[1]] = inlineKv[2].trim() === '' ? null : parseScalar(inlineKv[2].trim())
-          result.push(obj)
-          i++
-        }
-      } else {
-        result.push(parseScalar(itemContent))
-        i++
-      }
-    } else if (content === '-') {
-      // Bare dash, next indented block is the item
-      const nextNonEmpty = findNextNonEmpty(lines, i + 1)
-      if (nextNonEmpty !== -1 && getIndent(lines[nextNonEmpty]) > indent) {
-        const childIndent = getIndent(lines[nextNonEmpty])
-        const child = parseBlock(lines, i + 1, childIndent)
-        result.push(child.value)
-        i = child.nextIndex
-      } else {
-        result.push(null)
-        i++
-      }
-    } else {
-      break
-    }
-  }
-
-  return { value: result, nextIndex: i }
-}
-
-function findNextNonEmpty(lines: string[], start: number): number {
-  for (let i = start; i < lines.length; i++) {
-    const stripped = lines[i].replace(/\s+$/, '')
-    if (stripped !== '' && !stripped.replace(/^\s+/, '').startsWith('#')) return i
-  }
-  return -1
-}
 
 /* ── Type badge ── */
 const typesCatalog = ref<MiddlewareTypeInfo[]>([])
@@ -506,7 +279,7 @@ function openEdit(mw: Middleware) {
   form.name = mw.name
   form.type = mw.type
   configYaml.value = mw.config && Object.keys(mw.config).length > 0
-    ? objectToYaml(mw.config)
+    ? toYaml(mw.config)
     : ''
   configError.value = ''
   modalOpen.value = true
@@ -526,7 +299,7 @@ function buildPayload(): MiddlewareCreateRequest | null {
   let config: Record<string, unknown> = {}
   try {
     if (configYaml.value.trim()) {
-      const parsed = yamlToObject(configYaml.value)
+      const parsed = parseYaml(configYaml.value)
       config = parsed
     }
   } catch {

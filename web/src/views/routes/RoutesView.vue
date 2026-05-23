@@ -377,6 +377,7 @@ import Modal from '@/components/Modal.vue'
 import Pagination from '@/components/Pagination.vue'
 import CodeEditor from '@/components/CodeEditor.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { parseYaml, toYaml } from '@/utils/yaml'
 
 const { confirm } = useConfirm()
 const notify = useNotificationStore()
@@ -435,140 +436,6 @@ function getMethodsList(route: Route): string[] {
   return Array.isArray(methods) ? methods : []
 }
 
-/* ── YAML helpers ── */
-function objectToYaml(obj: Record<string, unknown>): string {
-  const lines: string[] = []
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined || value === null) continue
-    if (Array.isArray(value)) {
-      if (value.length === 0) continue
-      lines.push(`${key}:`)
-      for (const item of value) {
-        if (item && typeof item === 'object') {
-          const entries = Object.entries(item as Record<string, unknown>)
-          if (entries.length > 0) {
-            const [firstKey, firstVal] = entries[0]
-            lines.push(`  - ${firstKey}: ${JSON.stringify(firstVal)}`)
-            for (let j = 1; j < entries.length; j++) {
-              const [k, v] = entries[j]
-              lines.push(`    ${k}: ${JSON.stringify(v)}`)
-            }
-          }
-        } else {
-          lines.push(`  - ${item}`)
-        }
-      }
-    } else if (typeof value === 'object') {
-      lines.push(`${key}:`)
-      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-        lines.push(`  ${k}: ${JSON.stringify(v)}`)
-      }
-    } else if (typeof value === 'string') {
-      lines.push(`${key}: ${value}`)
-    } else {
-      lines.push(`${key}: ${value}`)
-    }
-  }
-  return lines.join('\n')
-}
-
-function parseValue(val: string): unknown {
-  if (val === 'true') return true
-  if (val === 'false') return false
-  if (val === 'null' || val === '~') return null
-  if (/^-?\d+$/.test(val)) return parseInt(val, 10)
-  if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val)
-  return val.replace(/^["']|["']$/g, '')
-}
-
-function yamlToObject(yamlStr: string): Record<string, unknown> {
-  const obj: Record<string, unknown> = {}
-  const lines = yamlStr.split('\n')
-  let currentKey = ''
-  let isCollectingArray = false
-  let isCollectingObject = false
-  let collectedArray: unknown[] = []
-  let collectedObject: Record<string, unknown> = {}
-  let currentArrayItem: Record<string, unknown> | null = null
-
-  function flushArrayItem() {
-    if (currentArrayItem && Object.keys(currentArrayItem).length > 0) {
-      collectedArray.push(currentArrayItem)
-      currentArrayItem = null
-    }
-  }
-
-  function flush() {
-    if (!currentKey) return
-    flushArrayItem()
-    if (isCollectingArray && collectedArray.length > 0) {
-      obj[currentKey] = collectedArray
-    } else if (isCollectingObject && Object.keys(collectedObject).length > 0) {
-      obj[currentKey] = collectedObject
-    }
-    isCollectingArray = false
-    isCollectingObject = false
-    collectedArray = []
-    collectedObject = {}
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.replace(/\s+$/, '')
-    if (!line || line.startsWith('#')) continue
-
-    if (/^\s+/.test(line) && currentKey) {
-      // Array item: "  - value" or "  - key: value"
-      const arrayMatch = line.match(/^\s+-\s+(.*)$/)
-      if (arrayMatch) {
-        flushArrayItem()
-        isCollectingArray = true
-        const rest = arrayMatch[1].trim()
-        // Check if it's "- key: value" (object item)
-        const kvInArray = rest.match(/^(\w[\w-]*):\s*(.*)$/)
-        if (kvInArray) {
-          currentArrayItem = {}
-          const val = kvInArray[2].trim()
-          currentArrayItem[kvInArray[1]] = val === '' ? null : parseValue(val)
-        } else {
-          collectedArray.push(parseValue(rest))
-        }
-        continue
-      }
-      // Continuation of array object item: "    key: value"
-      if (currentArrayItem) {
-        const contMatch = line.match(/^\s{4,}(\w[\w-]*):\s*(.*)$/)
-        if (contMatch) {
-          const val = contMatch[2].trim()
-          currentArrayItem[contMatch[1]] = val === '' ? null : parseValue(val)
-          continue
-        }
-      }
-      const nestedMatch = line.match(/^\s+(\w[\w-]*):\s*(.*)$/)
-      if (nestedMatch) {
-        isCollectingObject = true
-        const val = nestedMatch[2].trim()
-        collectedObject[nestedMatch[1]] = val === '' ? null : parseValue(val)
-        continue
-      }
-      continue
-    }
-
-    const kvMatch = line.match(/^(\w[\w-]*):\s*(.*)$/)
-    if (kvMatch) {
-      flush()
-      const key = kvMatch[1]
-      const val = kvMatch[2].trim()
-      currentKey = key
-      if (val === '') continue
-      obj[key] = parseValue(val)
-      currentKey = ''
-    }
-  }
-
-  flush()
-  return obj
-}
-
 /* ── Default YAML template ── */
 const defaultYaml = `path: /api/v1/*
 hosts: ["api.example.com"]
@@ -624,11 +491,11 @@ function switchMode(mode: 'simple' | 'advanced') {
   yamlError.value = ''
   if (mode === 'advanced') {
     // Simple → Advanced: serialize form fields to YAML
-    yamlContent.value = objectToYaml(simpleFormToConfig())
+    yamlContent.value = toYaml(simpleFormToConfig())
   } else {
     // Advanced → Simple: parse YAML into form fields
     try {
-      const config = yamlToObject(yamlContent.value)
+      const config = parseYaml(yamlContent.value)
       if (hasAdvancedFields(config)) {
         yamlError.value = 'This config has advanced fields that will be lost in Simple mode. Switch anyway or stay in Advanced.'
       }
@@ -746,11 +613,11 @@ function openEdit(route: Route) {
   // Default to advanced mode if config has fields the simple form can't represent
   if (hasAdvancedFields(config)) {
     formMode.value = 'advanced'
-    yamlContent.value = objectToYaml(config)
+    yamlContent.value = toYaml(config)
   } else {
     formMode.value = 'simple'
     configToSimpleForm(config)
-    yamlContent.value = objectToYaml(config)
+    yamlContent.value = toYaml(config)
   }
   modalOpen.value = true
   fetchAvailableMiddlewares()
@@ -792,7 +659,7 @@ async function handleSubmit() {
     config = simpleFormToConfig()
   } else {
     try {
-      config = yamlToObject(yamlContent.value)
+      config = parseYaml(yamlContent.value)
     } catch {
       yamlError.value = 'Failed to parse YAML. Please check your syntax.'
       return
