@@ -10,7 +10,6 @@
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/jkaninda/goma-admin?style=flat-square)
 ![Docker Pulls](https://img.shields.io/docker/pulls/jkaninda/goma-admin?style=flat-square)
 
-> **Warning**: This project is currently under active development. Contributions and feedback are welcome!
 
 ## Features
 
@@ -29,6 +28,16 @@
 - **Encryption** — encrypt sensitive configuration values at rest
 - **OpenAPI docs** — auto-generated Swagger UI
 
+## Quick Links
+
+- **Documentation**: [Documentation](https://jkaninda.github.io/goma-gateway)
+- **Source Code**: [Goma Gateway on GitHub](https://github.com/jkaninda/goma-admin)
+- **Docker Image**: [jkaninda/goma-admin](https://hub.docker.com/r/jkaninda/goma-admin)
+- **Goma Gateway**: [Goma Gateway](https://github.com/jkaninda/goma-gateway)
+- **HTTP Provider**: [Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
+- **Docker Provider**: [Goma Docker Provider](https://github.com/jkaninda/goma-docker-provider)
+- **Kubernetes Provider**: [Kubernetes Provider](https://github.com/jkaninda/goma-k8s-provider)
+
 ## Screenshots
 
 ### Dashboard
@@ -41,6 +50,12 @@
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-dark.png" alt="Dashboard (Dark)" width="900"/>
+</p>
+
+### Dashboard Route Details
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-route-details.png.png" alt="Dashboard Route Details" width="900"/>
 </p>
 
 ## Architecture
