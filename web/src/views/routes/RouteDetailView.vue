@@ -516,6 +516,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit Route Modal -->
+    <RouteFormModal
+      :show="editModalOpen"
+      :route="route"
+      @close="editModalOpen = false"
+      @saved="onEdited"
+    />
   </div>
 </template>
 
@@ -525,6 +533,7 @@ import { useRouter } from 'vue-router'
 import { routesApi, type Route } from '@/api/routes'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
+import RouteFormModal from '@/components/RouteFormModal.vue'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -535,6 +544,7 @@ const loading = ref(true)
 const error = ref(false)
 const route = ref<Route | null>(null)
 const showRaw = ref(false)
+const editModalOpen = ref(false)
 
 const knownFieldKeys = new Set([
   'path', 'target', 'hosts', 'methods', 'rewrite', 'enabled',
@@ -683,7 +693,12 @@ async function copyToClipboard(text: unknown) {
 }
 
 function handleEdit() {
-  router.push(`/routes?edit=${route.value?.id}`)
+  editModalOpen.value = true
+}
+
+// Reflect the saved route returned by the form modal back into the view.
+function onEdited(updated: Route) {
+  route.value = updated
 }
 
 async function handleDelete() {
