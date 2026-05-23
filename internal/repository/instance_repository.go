@@ -36,6 +36,19 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uint) (*models.Inst
 	return &instance, nil
 }
 
+// IsBuiltIn reports whether the instance is a built-in (auto-managed) instance.
+func (r *InstanceRepository) IsBuiltIn(ctx context.Context, id uint) (bool, error) {
+	var instance models.Instance
+	err := r.db.WithContext(ctx).Select("built_in").First(&instance, id).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, fmt.Errorf("instance not found: %d", id)
+		}
+		return false, err
+	}
+	return instance.BuiltIn, nil
+}
+
 func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*models.Instance, error) {
 	var instance models.Instance
 	err := r.db.WithContext(ctx).Where("name = ?", name).First(&instance).Error
