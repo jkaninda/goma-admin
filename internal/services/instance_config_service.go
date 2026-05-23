@@ -111,9 +111,12 @@ func (s *InstanceConfigService) Import(c *okapi.Context) error {
 
 	ctx := c.Request().Context()
 
-	_, err = s.instanceRepo.GetByID(ctx, id)
+	instance, err := s.instanceRepo.GetByID(ctx, id)
 	if err != nil {
 		return c.AbortNotFound("Instance not found", err)
+	}
+	if instance.BuiltIn {
+		return c.AbortBadRequest("Cannot import routes into a built-in instance")
 	}
 
 	body, err := io.ReadAll(c.Request().Body)
@@ -240,9 +243,12 @@ func (s *InstanceConfigService) CopyTo(c *okapi.Context) error {
 	if err != nil {
 		return c.AbortNotFound("Source instance not found", err)
 	}
-	_, err = s.instanceRepo.GetByID(ctx, targetID)
+	target, err := s.instanceRepo.GetByID(ctx, targetID)
 	if err != nil {
 		return c.AbortNotFound("Target instance not found", err)
+	}
+	if target.BuiltIn {
+		return c.AbortBadRequest("Cannot copy routes into a built-in instance")
 	}
 
 	result := dto.ImportResult{}
@@ -332,6 +338,9 @@ func (s *InstanceConfigService) SyncFromRepo(c *okapi.Context) error {
 	instance, err := s.instanceRepo.GetByID(ctx, id)
 	if err != nil {
 		return c.AbortNotFound("Instance not found", err)
+	}
+	if instance.BuiltIn {
+		return c.AbortBadRequest("Cannot sync routes into a built-in instance")
 	}
 
 	if instance.RepositoryID == nil {

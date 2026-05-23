@@ -14,14 +14,21 @@ import (
 )
 
 type RouteService struct {
-	repo     *repository.RouteRepository
-	writer   *ProviderWriter
-	eventBus *EventBus
-	audit    *AuditService
+	repo         *repository.RouteRepository
+	instanceRepo *repository.InstanceRepository
+	writer       *ProviderWriter
+	eventBus     *EventBus
+	audit        *AuditService
 }
 
 func NewRouteService(db *gorm.DB, writer *ProviderWriter, eventBus *EventBus, audit *AuditService) *RouteService {
-	return &RouteService{repo: repository.NewRouteRepository(db), writer: writer, eventBus: eventBus, audit: audit}
+	return &RouteService{
+		repo:         repository.NewRouteRepository(db),
+		instanceRepo: repository.NewInstanceRepository(db),
+		writer:       writer,
+		eventBus:     eventBus,
+		audit:        audit,
+	}
 }
 
 func (s RouteService) List(c *okapi.Context, input *dto.ListRequest) error {
@@ -39,6 +46,12 @@ func (s RouteService) Create(c *okapi.Context, input *dto.CreateRouteRq) error {
 	instanceID, err := RequireInstanceID(c)
 	if err != nil {
 		return c.AbortBadRequest("Instance selection required", err)
+	}
+
+	if builtIn, err := s.instanceRepo.IsBuiltIn(c.Context(), instanceID); err != nil {
+		return c.AbortNotFound("Instance not found", err)
+	} else if builtIn {
+		return c.AbortBadRequest("Cannot add routes to a built-in instance")
 	}
 
 	if validationErrs := ValidateRouteConfig(c.Context(), input.Body.Name, input.Body.Config, instanceID, s.repo, nil); len(validationErrs) > 0 {
@@ -112,6 +125,13 @@ func (s RouteService) Delete(c *okapi.Context, input *dto.RouteByIDRq) error {
 		return c.AbortNotFound("Route not found", err)
 	}
 	instanceID := route.InstanceID
+
+	if builtIn, err := s.instanceRepo.IsBuiltIn(c.Context(), instanceID); err != nil {
+		return c.AbortNotFound("Instance not found", err)
+	} else if builtIn {
+		return c.AbortBadRequest("Cannot remove routes from a built-in instance")
+	}
+
 	before := routeSnapshot(route)
 
 	if err := s.repo.Delete(c.Context(), uint(input.ID)); err != nil {

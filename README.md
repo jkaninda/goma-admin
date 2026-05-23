@@ -30,8 +30,8 @@
 
 ## Quick Links
 
-- **Documentation**: [Documentation](https://jkaninda.github.io/goma-gateway)
-- **Source Code**: [Goma Gateway on GitHub](https://github.com/jkaninda/goma-admin)
+- **Documentation**: [Documentation](https://goma.jkaninda.dev)
+- **Source Code**: [Goma Admin on GitHub](https://github.com/jkaninda/goma-admin)
 - **Docker Image**: [jkaninda/goma-admin](https://hub.docker.com/r/jkaninda/goma-admin)
 - **Goma Gateway**: [Goma Gateway](https://github.com/jkaninda/goma-gateway)
 - **HTTP Provider**: [Goma HTTP Provider](https://github.com/jkaninda/goma-http-provider)
