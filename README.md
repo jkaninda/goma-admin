@@ -55,7 +55,7 @@
 ### Dashboard Route Details
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-route-details.png.png" alt="Dashboard Route Details" width="900"/>
+  <img src="https://raw.githubusercontent.com/jkaninda/goma-admin/main/dashboard-route-details.png" alt="Dashboard Route Details" width="900"/>
 </p>
 
 ## Architecture
