@@ -1003,8 +1003,9 @@ onMounted(async () => {
 .tf-packet-sm {
   width: 4px;
   height: 4px;
-  top: -1px;
-  animation-duration: 1.6s;
+  top: auto;
+  left: -1px;
+  animation: packet-flow-vertical 1.6s ease-in-out infinite;
 }
 
 @keyframes packet-flow {
@@ -1020,6 +1021,23 @@ onMounted(async () => {
   }
   100% {
     left: calc(100% + 2px);
+    opacity: 0;
+  }
+}
+
+@keyframes packet-flow-vertical {
+  0% {
+    top: -4px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: calc(100% + 2px);
     opacity: 0;
   }
 }
@@ -1043,8 +1061,9 @@ onMounted(async () => {
 }
 .tf-middlewares-pipeline {
   display: flex;
-  align-items: center;
-  padding: 10px 14px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px 14px;
   border: 1.5px dashed var(--warning-300, #fcd34d);
   border-radius: 10px;
   background: var(--warning-50, rgba(245, 158, 11, 0.04));
@@ -1054,6 +1073,7 @@ onMounted(async () => {
 /* Middleware steps */
 .tf-mw-step {
   display: flex;
+  flex-direction: column;
   align-items: center;
 }
 .tf-node--middleware {
@@ -1066,6 +1086,7 @@ onMounted(async () => {
   border-radius: 8px;
   background: var(--bg-primary);
   min-width: auto;
+  width: 100%;
   white-space: nowrap;
 }
 .tf-node--middleware:hover {
@@ -1092,12 +1113,13 @@ onMounted(async () => {
 .tf-mw-connector {
   display: flex;
   align-items: center;
-  padding: 0 2px;
+  justify-content: center;
+  padding: 3px 0;
 }
 .tf-mw-connector-line {
   position: relative;
-  width: 24px;
-  height: 2px;
+  width: 2px;
+  height: 16px;
   background: var(--warning-200, #fde68a);
   border-radius: 1px;
   overflow: hidden;
