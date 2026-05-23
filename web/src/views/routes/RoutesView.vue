@@ -383,10 +383,23 @@ import { parseYaml, toYaml } from '@/utils/yaml'
 const { confirm } = useConfirm()
 const notify = useNotificationStore()
 
+const currentRoute = useRoute()
+const router = useRouter()
+
+// Restore the page from the URL (1-based) so the list survives refresh / back-navigation.
+function initialPage(): number {
+  const p = currentRoute.query.page
+  if (typeof p === 'string') {
+    const n = parseInt(p, 10)
+    if (!isNaN(n) && n > 0) return n - 1
+  }
+  return 0
+}
+
 /* ── State ── */
 const loading = ref(true)
 const saving = ref(false)
-const page = ref(0)
+const page = ref(initialPage())
 const pageable = ref({ current_page: 0, total_pages: 1, total_elements: 0, size: 20, empty: true })
 const routes = ref<Route[]>([])
 const modalOpen = ref(false)
@@ -394,7 +407,7 @@ const editing = ref<Route | null>(null)
 const formName = ref('')
 const yamlContent = ref('')
 const yamlError = ref('')
-const search = ref('')
+const search = ref(typeof currentRoute.query.q === 'string' ? currentRoute.query.q : '')
 const formMode = ref<'simple' | 'advanced'>('simple')
 
 const allMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
@@ -416,6 +429,7 @@ watch(search, () => {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   searchDebounceTimer = setTimeout(() => {
     page.value = 0
+    syncQuery()
     fetchRoutes()
   }, 300)
 })
@@ -770,8 +784,17 @@ async function handleImport() {
 }
 
 /* ── Fetch ── */
+// Mirror the current page (1-based) and search term into the URL query.
+function syncQuery() {
+  const query: Record<string, string> = {}
+  if (page.value > 0) query.page = String(page.value + 1)
+  if (search.value) query.q = search.value
+  router.replace({ query })
+}
+
 function goToPage(p: number) {
   page.value = p
+  syncQuery()
   fetchRoutes()
 }
 
@@ -788,10 +811,6 @@ async function fetchRoutes() {
   }
 }
 
-const currentRoute = useRoute()
-const router = useRouter()
-
-
 async function openEditFromQuery() {
   const editId = currentRoute.query.edit
   if (!editId) return
@@ -801,8 +820,8 @@ async function openEditFromQuery() {
   } catch {
     notify.error('Failed to load route for editing')
   }
-  // Drop the query param so closing/refreshing doesn't re-open the modal.
-  router.replace({ query: {} })
+  // Drop the edit param (keeping page/search) so closing/refreshing doesn't re-open the modal.
+  syncQuery()
 }
 
 onMounted(async () => {
