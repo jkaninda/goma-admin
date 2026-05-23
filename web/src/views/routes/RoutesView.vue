@@ -369,6 +369,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { routesApi, type Route, type RouteCreateRequest, type ImportResult } from '@/api/routes'
 import { middlewaresApi, type Middleware } from '@/api/middlewares'
 import { useConfirm } from '@/composables/useConfirm'
@@ -787,7 +788,27 @@ async function fetchRoutes() {
   }
 }
 
-onMounted(fetchRoutes)
+const currentRoute = useRoute()
+const router = useRouter()
+
+
+async function openEditFromQuery() {
+  const editId = currentRoute.query.edit
+  if (!editId) return
+  try {
+    const res = await routesApi.get(Number(editId))
+    openEdit(res.data)
+  } catch {
+    notify.error('Failed to load route for editing')
+  }
+  // Drop the query param so closing/refreshing doesn't re-open the modal.
+  router.replace({ query: {} })
+}
+
+onMounted(async () => {
+  await fetchRoutes()
+  await openEditFromQuery()
+})
 </script>
 
 <style scoped>
