@@ -8,12 +8,12 @@
       </div>
     </div>
 
-    <div v-if="loading" class="card card-body loading-page">
+    <div v-if="initialLoad" class="card card-body loading-page">
       <div class="spinner"></div>
     </div>
 
     <EmptyState
-      v-else-if="middlewares.length === 0"
+      v-else-if="middlewares.length === 0 && !search"
       title="No middlewares"
       description="Create your first middleware for rate limiting, authentication, and more."
     >
@@ -70,44 +70,12 @@
     </template>
 
     <!-- Create / Edit Modal -->
-    <Modal
+    <MiddlewareFormModal
       :show="modalOpen"
-      :title="editing ? 'Edit Middleware' : 'New Middleware'"
-      size="xl"
+      :middleware="editing"
       @close="closeModal"
-    >
-      <div class="modal-body">
-        <form @submit.prevent="handleSubmit">
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Name</label>
-              <input v-model="form.name" required class="form-input" placeholder="rate-limit" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Type</label>
-              <input v-model="form.type" required class="form-input" placeholder="rateLimit" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Config (YAML)</label>
-            <CodeEditor
-              v-model="configYaml"
-              language="yaml"
-              min-height="260px"
-            />
-            <div v-if="configError" class="form-error">{{ configError }}</div>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeModal">Cancel</button>
-            <button type="submit" class="btn btn-primary" :disabled="saving">
-              {{ saving ? 'Saving...' : (editing ? 'Update' : 'Create') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </Modal>
+      @saved="onSaved"
+    />
     <!-- Import Modal -->
     <Modal
       :show="importModalOpen"
@@ -157,30 +125,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
-import { middlewaresApi, type Middleware, type MiddlewareCreateRequest, type MiddlewareTypeInfo, type ImportResult } from '@/api/middlewares'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { middlewaresApi, type Middleware, type MiddlewareTypeInfo, type ImportResult } from '@/api/middlewares'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
 import Modal from '@/components/Modal.vue'
 import CodeEditor from '@/components/CodeEditor.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import Pagination from '@/components/Pagination.vue'
-import { parseYaml, toYaml } from '@/utils/yaml'
+import MiddlewareFormModal from '@/components/MiddlewareFormModal.vue'
 
 const { confirm } = useConfirm()
 const notify = useNotificationStore()
 
 /* ── State ── */
-const loading = ref(true)
-const saving = ref(false)
+const initialLoad = ref(true)
 const middlewares = ref<Middleware[]>([])
 const page = ref(0)
 const pageable = ref({ current_page: 0, total_pages: 1, total_elements: 0, size: 20, empty: true })
 const modalOpen = ref(false)
 const editing = ref<Middleware | null>(null)
-const editingId = ref<number | null>(null)
-const configYaml = ref('')
-const configError = ref('')
 const search = ref('')
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -202,11 +166,6 @@ const importing = ref(false)
 const importYaml = ref('')
 const importError = ref('')
 const importResult = ref<ImportResult | null>(null)
-
-const form = reactive({
-  name: '',
-  type: '',
-})
 
 /* ── Type badge ── */
 const typesCatalog = ref<MiddlewareTypeInfo[]>([])
@@ -249,92 +208,25 @@ function configPreview(config: Record<string, unknown>): string {
   return summary.length > 80 ? summary.slice(0, 77) + '...' : summary
 }
 
-/* ── Default config template ── */
-const defaultConfigYaml = `paths:
-  - /api/*
-rule:
-  requestsPerUnit: 100
-  unit: minute
-  burst: 10`
-
 /* ── Modal open / close ── */
-function resetForm() {
-  form.name = ''
-  form.type = ''
-  configYaml.value = ''
-  configError.value = ''
-}
-
 function openCreate() {
-  resetForm()
   editing.value = null
-  editingId.value = null
-  configYaml.value = defaultConfigYaml
   modalOpen.value = true
 }
 
 function openEdit(mw: Middleware) {
   editing.value = mw
-  editingId.value = mw.id
-  form.name = mw.name
-  form.type = mw.type
-  configYaml.value = mw.config && Object.keys(mw.config).length > 0
-    ? toYaml(mw.config)
-    : ''
-  configError.value = ''
   modalOpen.value = true
 }
 
 function closeModal() {
   modalOpen.value = false
   editing.value = null
-  editingId.value = null
-  resetForm()
 }
 
-/* ── Submit ── */
-function buildPayload(): MiddlewareCreateRequest | null {
-  configError.value = ''
-
-  let config: Record<string, unknown> = {}
-  try {
-    if (configYaml.value.trim()) {
-      const parsed = parseYaml(configYaml.value)
-      config = parsed
-    }
-  } catch {
-    configError.value = 'Invalid YAML in config. Please check your syntax.'
-    return null
-  }
-
-  if (!form.name.trim()) return null
-  if (!form.type.trim()) return null
-
-  return {
-    name: form.name,
-    type: form.type,
-    config,
-  }
-}
-
-async function handleSubmit() {
-  const data = buildPayload()
-  if (!data) return
-
-  saving.value = true
-  try {
-    if (editing.value && editingId.value) {
-      await middlewaresApi.update(editingId.value, data)
-    } else {
-      await middlewaresApi.create(data)
-    }
-    closeModal()
-    await fetchMiddlewares()
-  } catch {
-    // Error handled by API interceptor
-  } finally {
-    saving.value = false
-  }
+// Refresh the list after the form modal saves a middleware.
+function onSaved() {
+  fetchMiddlewares()
 }
 
 /* ── Delete ── */
@@ -422,7 +314,6 @@ function goToPage(p: number) {
 }
 
 async function fetchMiddlewares() {
-  loading.value = true
   try {
     const res = await middlewaresApi.list(page.value, 20, search.value)
     middlewares.value = res.data.data || []
@@ -430,7 +321,7 @@ async function fetchMiddlewares() {
   } catch {
     // Error handled by API interceptor
   } finally {
-    loading.value = false
+    initialLoad.value = false
   }
 }
 
