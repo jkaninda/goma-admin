@@ -8,12 +8,12 @@
       </div>
     </div>
 
-    <div v-if="loading" class="card card-body loading-page">
+    <div v-if="initialLoad" class="card card-body loading-page">
       <div class="spinner"></div>
     </div>
 
     <EmptyState
-      v-else-if="routes.length === 0"
+      v-else-if="routes.length === 0 && !search"
       title="No routes"
       description="Create your first route to start proxying traffic."
     >
@@ -217,13 +217,13 @@ function initialPage(): number {
 }
 
 /* ── State ── */
-const loading = ref(true)
+const initialLoad = ref(true)
 const page = ref(initialPage())
 const pageable = ref({ current_page: 0, total_pages: 1, total_elements: 0, size: 20, empty: true })
 const routes = ref<Route[]>([])
 const modalOpen = ref(false)
 const editing = ref<Route | null>(null)
-const search = ref(typeof currentRoute.query.q === 'string' ? currentRoute.query.q : '')
+const search = ref('')
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(search, () => {
@@ -359,7 +359,6 @@ async function handleImport() {
 function syncQuery() {
   const query: Record<string, string> = {}
   if (page.value > 0) query.page = String(page.value + 1)
-  if (search.value) query.q = search.value
   router.replace({ query })
 }
 
@@ -370,7 +369,6 @@ function goToPage(p: number) {
 }
 
 async function fetchRoutes() {
-  loading.value = true
   try {
     const res = await routesApi.list(page.value, 20, search.value)
     routes.value = res.data.data || []
@@ -378,7 +376,7 @@ async function fetchRoutes() {
   } catch {
     // Error handled by API interceptor
   } finally {
-    loading.value = false
+    initialLoad.value = false
   }
 }
 
