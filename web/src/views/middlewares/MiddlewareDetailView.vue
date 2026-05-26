@@ -179,6 +179,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Edit Middleware Modal -->
+    <MiddlewareFormModal
+      :show="editModalOpen"
+      :middleware="middleware"
+      @close="editModalOpen = false"
+      @saved="onEdited"
+    />
   </div>
 </template>
 
@@ -189,6 +197,7 @@ import { middlewaresApi, type Middleware, type MiddlewareTypeInfo } from '@/api/
 import type { Route } from '@/api/routes'
 import { useConfirm } from '@/composables/useConfirm'
 import { useNotificationStore } from '@/stores/notification'
+import MiddlewareFormModal from '@/components/MiddlewareFormModal.vue'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -201,6 +210,7 @@ const middleware = ref<Middleware | null>(null)
 const showRaw = ref(false)
 const usedByRoutes = ref<Route[]>([])
 const typesCatalog = ref<MiddlewareTypeInfo[]>([])
+const editModalOpen = ref(false)
 
 // Map category → badge class
 const categoryBadgeMap: Record<string, string> = {
@@ -287,7 +297,12 @@ function formatDate(dateStr: string): string {
 }
 
 function handleEdit() {
-  router.push(`/middlewares?edit=${middleware.value?.id}`)
+  editModalOpen.value = true
+}
+
+// Reflect the saved middleware returned by the form modal back into the view.
+function onEdited(updated: Middleware) {
+  middleware.value = updated
 }
 
 async function handleDelete() {
