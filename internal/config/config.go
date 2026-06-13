@@ -118,8 +118,10 @@ func (c *Config) initialize(app *okapi.Okapi) error {
 	// Init Doc
 	if c.Server.enableDocs {
 		app.WithOpenAPIDocs(okapi.OpenAPI{
-			Title:   AppName,
-			Version: Version,
+			Title:       AppName,
+			Version:     Version,
+			UI:          okapi.SwaggerUI,
+			StrictDocUI: true,
 		})
 	}
 	app.WithPort(c.Server.Port)
