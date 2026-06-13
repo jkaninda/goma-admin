@@ -3,9 +3,7 @@ package routes
 import (
 	"context"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
+	"time"
 
 	"github.com/jkaninda/goma-admin/internal/config"
 	"github.com/jkaninda/goma-admin/internal/docker"
@@ -13,7 +11,6 @@ import (
 	"github.com/jkaninda/goma-admin/internal/middlewares"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/services"
-	"github.com/jkaninda/logger"
 	"github.com/jkaninda/okapi"
 )
 
@@ -112,7 +109,7 @@ func (r *Router) RegisterRoutes() {
 	r.app.Register(r.tlsRoutes()...)
 
 	// SPA serving
-	r.registerSPA()
+	r.app.SPA("/", r.config.WebDir, okapi.SPAConfig{MaxAge: time.Hour})
 }
 
 func (r *Router) versionRoute() okapi.RouteDefinition {
@@ -371,37 +368,4 @@ func (r *Router) tlsRoutes() []okapi.RouteDefinition {
 			Options:  []okapi.RouteOption{okapi.DocBearerAuth()},
 		},
 	}
-}
-
-// registerSPA serves the Vue SPA from web/dist
-func (r *Router) registerSPA() {
-	webDir := r.config.WebDir
-	if info, err := os.Stat(webDir); err != nil || !info.IsDir() {
-		logger.Info("Web directory not found, skipping SPA serving", "path", webDir)
-		return
-	}
-
-	logger.Info("Serving SPA from", "path", webDir)
-	r.app.Static("/assets", filepath.Join(webDir, "assets"))
-	indexPath := filepath.Join(webDir, "index.html")
-
-	r.app.NoRoute(func(c *okapi.Context) error {
-		path := c.Request().URL.Path
-		if strings.HasPrefix(path, "/api/") ||
-			strings.HasPrefix(path, "/healthz") ||
-			strings.HasPrefix(path, "/readyz") ||
-			strings.HasPrefix(path, "/metrics") ||
-			strings.HasPrefix(path, "/docs") {
-			return c.AbortNotFound("not found")
-		}
-
-		filePath := filepath.Join(webDir, filepath.Clean(path))
-		if stat, err := os.Stat(filePath); err == nil && !stat.IsDir() {
-			http.ServeFile(c.ResponseWriter(), c.Request(), filePath)
-			return nil
-		}
-
-		http.ServeFile(c.ResponseWriter(), c.Request(), indexPath)
-		return nil
-	})
 }
