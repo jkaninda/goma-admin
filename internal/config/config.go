@@ -74,7 +74,7 @@ func New(app *okapi.Okapi, cli *okapicli.CLI) (*Config, error) {
 			CertsDir:        goutils.Env("GOMA_CERTS_DIR", "/etc/goma/certs"),
 		},
 		ProvidersDir: goutils.Env("GOMA_PROVIDERS_DIR", "/etc/goma/providers"),
-		WebDir:       goutils.Env("GOMA_WEB_DIR", "web/dist"),
+		WebDir:       goutils.Env("GOMA_WEB_DIR", ""),
 	}
 	if err := cfg.initialize(app); err != nil {
 		return nil, err

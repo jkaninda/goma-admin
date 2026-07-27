@@ -11,6 +11,7 @@ import (
 	"github.com/jkaninda/goma-admin/internal/middlewares"
 	"github.com/jkaninda/goma-admin/internal/models"
 	"github.com/jkaninda/goma-admin/internal/services"
+	"github.com/jkaninda/goma-admin/internal/web"
 	"github.com/jkaninda/okapi"
 )
 
@@ -108,8 +109,11 @@ func (r *Router) RegisterRoutes() {
 	r.app.Register(r.repositoryRoutes()...)
 	r.app.Register(r.tlsRoutes()...)
 
-	// SPA serving
-	r.app.SPA("/", r.config.WebDir, okapi.SPAConfig{MaxAge: time.Hour})
+	if r.config.WebDir != "" {
+		r.app.Web("/", r.config.WebDir, okapi.WebConfig{MaxAge: time.Hour})
+	} else {
+		r.app.WebFS("/", web.Assets, okapi.WebConfig{Root: "dist", MaxAge: time.Hour})
+	}
 }
 
 func (r *Router) versionRoute() okapi.RouteDefinition {
