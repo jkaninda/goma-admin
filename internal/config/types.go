@@ -20,7 +20,12 @@ type Config struct {
 	RepoSync     RepoSyncConfig
 	TLS          TLSConfig
 	ProvidersDir string
-	WebDir       string
+
+	// WebDir overrides where the dashboard is served from. The UI is normally
+	// embedded in the binary (internal/web); setting GOMA_WEB_DIR serves it
+	// from this directory instead, for frontend development or a customized
+	// build.
+	WebDir string
 }
 
 type TLSConfig struct {

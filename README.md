@@ -254,7 +254,7 @@ The dashboard is available at `http://localhost:9000`.
 | `GOMA_ENVIRONMENT` | Environment (`development`, `production`) | `development` |
 | `GOMA_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `GOMA_ENABLE_DOCS` | Enable OpenAPI documentation | `true` |
-| `GOMA_WEB_DIR` | Frontend assets directory | `web/dist` |
+| `GOMA_WEB_DIR` | Serve the dashboard from this directory instead of the copy embedded in the binary (development, or a customized build) | _(embedded)_ |
 | `GOMA_PROVIDERS_DIR` | Directory for instance config output | `/etc/goma/providers` |
 | `GOMA_BASE_URL` | Base URL for OAuth callbacks | `http://localhost:9000` |
 

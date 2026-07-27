@@ -24,6 +24,10 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 COPY utils/ utils/
 
+# Stage the built dashboard where //go:embed reads it (see internal/web), so the
+# binary serves the UI itself.
+COPY --from=ui-builder /app/web/dist internal/web/dist
+
 # Build the binary
 RUN CGO_ENABLED=0 go build \
     -ldflags "-s -w -X 'github.com/jkaninda/goma-admin/internal/config.Version=${VERSION}' -X 'github.com/jkaninda/goma-admin/internal/config.CommitID=${COMMIT}' -X 'github.com/jkaninda/goma-admin/internal/config.BuildDate=${BUILD_DATE}'" \
@@ -32,19 +36,14 @@ RUN CGO_ENABLED=0 go build \
 FROM alpine:3.21
 
 ENV TZ=UTC
-ENV GOMA_WEB_DIR=/app/web/dist
 
 # Install runtime dependencies
 RUN apk --update --no-cache add tzdata ca-certificates curl
 
-# Copy built binary
+# Copy built binary — the dashboard is embedded in it, so no static assets ship
+# alongside and GOMA_WEB_DIR stays unset.
 COPY --from=build /bin/goma /usr/local/bin/goma
 RUN chmod a+x /usr/local/bin/goma && ln -s /usr/local/bin/goma /goma
-
-# Copy frontend assets
-COPY --from=ui-builder /app/web/dist /app/web/dist
-
-ENV GOMA_WEB_DIR=/app/web/dist
 
 WORKDIR /app
 EXPOSE 9000

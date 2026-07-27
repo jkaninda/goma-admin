@@ -3,6 +3,8 @@
 BINARY := goma-admin
 BUILD_DIR := bin
 UI_DIR := web
+# Where `go build` picks the dashboard up for embedding (see internal/web).
+EMBED_UI_DIR := internal/web/dist
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -22,13 +24,18 @@ install: ## Install all dependencies
 	cd $(UI_DIR) && npm install
 	@echo "Done!"
 
-build-ui: ## Build frontend only
+build-ui: ## Build the dashboard and stage it for embedding (internal/web/dist)
 	cd $(UI_DIR) && npm install && npm run build
+	# Stage the build output where //go:embed reads it, keeping the committed
+	# .gitkeep so `go build` still works on a clean tree.
+	rm -rf $(EMBED_UI_DIR)
+	cp -r $(UI_DIR)/dist $(EMBED_UI_DIR)
+	touch $(EMBED_UI_DIR)/.gitkeep
 
 build-api: ## Build backend only
 	go build -o $(BUILD_DIR)/$(BINARY) cmd/main.go
 
-build: build-ui build-api ## Build both API and UI
+build: build-ui build-api ## Build both API and UI (self-contained binary)
 
 up: ## Start all services with Docker Compose
 	docker compose up -d
@@ -44,6 +51,8 @@ clean: ## Clean build artifacts and dependencies
 	rm -rf $(BUILD_DIR)/ tmp/
 	@echo "Cleaning UI..."
 	cd $(UI_DIR) && rm -rf dist/ node_modules/
+	rm -rf $(EMBED_UI_DIR)
+	mkdir -p $(EMBED_UI_DIR) && touch $(EMBED_UI_DIR)/.gitkeep
 	@echo "Cleaning Docker volumes..."
 	docker compose down -v
 	@echo "Done!"

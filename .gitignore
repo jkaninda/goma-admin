@@ -17,3 +17,7 @@ coverage.out
 bin/
 coverage.txt
 coverage.out
+
+# Dashboard build output staged for //go:embed (see internal/web)
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
