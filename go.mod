@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jkaninda/go-utils v0.1.4
 	github.com/jkaninda/logger v0.0.5
-	github.com/jkaninda/okapi v0.10.0
+	github.com/jkaninda/okapi v0.11.0
 	github.com/joho/godotenv v1.5.1
 	github.com/pquerna/otp v1.5.0
 	golang.org/x/crypto v0.54.0
@@ -35,7 +35,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/getkin/kin-openapi v0.143.0 // indirect
+	github.com/getkin/kin-openapi v0.145.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -50,7 +50,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/jkaninda/njia v0.0.1 // indirect
+	github.com/jkaninda/njia v0.0.3 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
